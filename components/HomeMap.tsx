@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SpotWithStats } from "@/lib/queries";
 import { scoreClass } from "./ScoreCircle";
 
@@ -9,6 +10,7 @@ type LRef = typeof import("leaflet");
 type MapRef = import("leaflet").Map;
 
 export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
+  const router = useRouter();
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef | null>(null);
   const tileRef = useRef<import("leaflet").TileLayer | null>(null);
@@ -110,6 +112,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         const m = L.marker([s.latitude, s.longitude], { icon, title: s.name }).addTo(map);
         m.on("click", () => {
           setSelectedId(s.id);
+          router.push(`/spot/${s.id}`);
         });
       }
     })();

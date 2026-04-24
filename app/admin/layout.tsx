@@ -41,6 +41,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Queue
         </Link>
         <Link
+          href="/admin/tags"
+          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
+        >
+          Tags
+        </Link>
+        <Link
           href="/admin/users"
           className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
         >

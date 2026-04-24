@@ -28,13 +28,24 @@ export async function getCurrentUser() {
       .filter(Boolean);
     const shouldBeAdmin = email != null && adminEmails.includes(email.toLowerCase());
 
+    const clerkDisplayName =
+      (cu?.firstName && cu?.lastName
+        ? `${cu.firstName} ${cu.lastName}`
+        : cu?.firstName) ??
+      cu?.username ??
+      (email ? email.split("@")[0] : null);
+
     const row = await db.query.users.findFirst({ where: eq(users.clerkId, userId) });
     if (row) {
-      // Auto-elevate if email matches ADMIN_EMAILS
-      if (shouldBeAdmin && row.role !== "admin") {
+      const patch: Partial<typeof users.$inferInsert> = {};
+      if (shouldBeAdmin && row.role !== "admin") patch.role = "admin";
+      // Backfill display name / email if missing
+      if (!row.displayName && clerkDisplayName) patch.displayName = clerkDisplayName;
+      if (!row.email && email) patch.email = email;
+      if (Object.keys(patch).length > 0) {
         const [updated] = await db
           .update(users)
-          .set({ role: "admin" })
+          .set(patch)
           .where(eq(users.id, row.id))
           .returning();
         return updated;
@@ -49,12 +60,7 @@ export async function getCurrentUser() {
         clerkId: userId,
         email,
         role: shouldBeAdmin ? "admin" : "user",
-        displayName:
-          (cu?.firstName && cu?.lastName
-            ? `${cu.firstName} ${cu.lastName}`
-            : cu?.firstName) ??
-          cu?.username ??
-          null,
+        displayName: clerkDisplayName,
       })
       .returning();
     return created;

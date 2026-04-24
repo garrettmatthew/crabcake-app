@@ -5,25 +5,18 @@ import { useRouter } from "next/navigation";
 import type { SpotWithStats } from "@/lib/queries";
 import { submitRating } from "@/lib/actions";
 
-const ALL_TAGS = [
-  "Jumbo Lump",
-  "Lump",
-  "Broiled",
-  "Fried",
-  "Imperial",
-  "Minimal Filler",
-  "Heavy Filler",
-  "Spicy",
-  "Waterfront",
-];
-
 export default function RateForm({
   spots,
   initialSpot,
+  isAdmin = false,
+  tagOptions,
 }: {
   spots: SpotWithStats[];
   initialSpot: SpotWithStats;
+  isAdmin?: boolean;
+  tagOptions: string[];
 }) {
+  const ALL_TAGS = tagOptions;
   const router = useRouter();
   const [spotId, setSpotId] = useState(initialSpot.id);
   const spot = spots.find((s) => s.id === spotId) ?? initialSpot;
@@ -33,6 +26,7 @@ export default function RateForm({
   const [tags, setTags] = useState<string[]>(spot.userTags ?? []);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [asBoys, setAsBoys] = useState(isAdmin); // Default ON for admins
   const [pending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -111,12 +105,17 @@ export default function RateForm({
         note: note || undefined,
         tags,
         photoUrl: photoUrl || undefined,
+        asBoys: isAdmin && asBoys,
       });
       setSuccess(true);
       if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([15, 50, 30]);
+      // Force router to re-fetch server data (community score, reviews list, etc.)
+      router.refresh();
       setTimeout(() => {
         setSuccess(false);
         router.push(`/spot/${spotId}`);
+        // Refresh again after navigation to ensure fresh data
+        setTimeout(() => router.refresh(), 50);
       }, 1700);
     });
   }
@@ -141,6 +140,87 @@ export default function RateForm({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3.5 pb-24">
+        {/* Admin: post as Boys toggle */}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setAsBoys(!asBoys)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "12px 14px",
+              borderRadius: "16px",
+              background: asBoys ? "var(--ink)" : "var(--panel)",
+              border: asBoys ? "2px solid var(--gold)" : "1px solid var(--border)",
+              color: asBoys ? "#fff" : "var(--ink)",
+              marginBottom: "12px",
+              textAlign: "left",
+              cursor: "pointer",
+              transition: "all .15s ease",
+            }}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                background: asBoys ? "var(--crab)" : "var(--bg-2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "18px",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ color: asBoys ? "var(--gold)" : "var(--ink-3)" }}>★</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: "14px", letterSpacing: "-.01em" }}>
+                Post as Baltimore Boys
+              </div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: asBoys ? "rgba(255,255,255,.75)" : "var(--ink-3)",
+                  marginTop: "2px",
+                  lineHeight: 1.3,
+                }}
+              >
+                {asBoys
+                  ? "This becomes the official Boys score for this spot."
+                  : "Saves as personal. Tap to make it the official Boys score."}
+              </div>
+            </div>
+            <div
+              style={{
+                width: "44px",
+                height: "26px",
+                borderRadius: "999px",
+                background: asBoys ? "var(--gold)" : "var(--border-2)",
+                position: "relative",
+                flexShrink: 0,
+                transition: "background .15s",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: asBoys ? "20px" : "2px",
+                  width: "22px",
+                  height: "22px",
+                  background: "#fff",
+                  borderRadius: "50%",
+                  transition: "left .2s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+                }}
+              />
+            </div>
+          </button>
+        )}
+
         {/* Spot selector */}
         <button
           onClick={() => setPickerOpen(!pickerOpen)}
@@ -392,10 +472,20 @@ export default function RateForm({
           🦀
         </div>
         <div className="font-display font-extrabold text-[34px] tracking-tight leading-none mb-2.5">
-          Posted to the<br />community.
+          {isAdmin && asBoys ? (
+            <>
+              Official Boys<br />review posted.
+            </>
+          ) : (
+            <>
+              Posted to the<br />community.
+            </>
+          )}
         </div>
         <div className="font-sans text-[15px] opacity-90 max-w-72">
-          Your rating is live and moving the crowd score.
+          {isAdmin && asBoys
+            ? "This is now the official Baltimore Boys score for this spot."
+            : "Your rating is live and moving the crowd score."}
         </div>
         <div className="mt-6 font-display font-extrabold text-lg bg-white/15 px-5 py-2.5 rounded-full flex items-center gap-2 backdrop-blur border border-white/30">
           Your score · <b className="text-[26px] tracking-[-.04em]">{score.toFixed(1)}</b>

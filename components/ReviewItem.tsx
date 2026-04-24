@@ -41,7 +41,7 @@ export default function ReviewItem({ review }: { review: Review }) {
             {initials}
           </div>
           <div>
-            <div className="text-[12.5px] font-semibold">{review.userName ?? "Anonymous"}</div>
+            <div className="text-[12.5px] font-semibold">{review.userName ?? "A Baltimore local"}</div>
             <div className="font-mono text-[10px] text-[var(--ink-3)]">{dateStr}</div>
           </div>
         </div>

@@ -68,6 +68,7 @@ export const ratings = pgTable(
     note: text("note"),
     tags: text("tags").array(),
     photoUrl: text("photo_url"),
+    isBoysReview: boolean("is_boys_review").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -128,6 +129,13 @@ export const collectionSpots = pgTable(
     spotIdx: index("collection_spots_spot_idx").on(t.spotId),
   })
 );
+
+export const tags = pgTable("tags", {
+  id: text("id").primaryKey(),
+  label: text("label").notNull().unique(),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const submissions = pgTable("submissions", {
   id: text("id").primaryKey(),

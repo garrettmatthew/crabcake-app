@@ -9,6 +9,7 @@ import {
   spots,
   collections,
   collectionSpots,
+  tags,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq } from "drizzle-orm";
@@ -22,12 +23,16 @@ export async function submitRating(input: {
   note?: string;
   tags?: string[];
   photoUrl?: string;
+  asBoys?: boolean;
 }) {
   const user = await requireUser();
   const score = Math.max(0, Math.min(10, input.score));
+
+  // Always record the personal rating so it shows up in "My reviews"
   const existing = await db.query.ratings.findFirst({
     where: and(eq(ratings.userId, user.id), eq(ratings.spotId, input.spotId)),
   });
+  const markAsBoys = Boolean(input.asBoys && user.role === "admin");
   if (existing) {
     await db
       .update(ratings)
@@ -36,6 +41,7 @@ export async function submitRating(input: {
         note: input.note ?? null,
         tags: input.tags ?? null,
         photoUrl: input.photoUrl ?? existing.photoUrl,
+        isBoysReview: markAsBoys,
         updatedAt: new Date(),
       })
       .where(eq(ratings.id, existing.id));
@@ -48,12 +54,55 @@ export async function submitRating(input: {
       note: input.note ?? null,
       tags: input.tags ?? null,
       photoUrl: input.photoUrl ?? null,
+      isBoysReview: markAsBoys,
     });
   }
+
+  let asBoys = false;
+  if (markAsBoys) {
+    asBoys = true;
+    // Derive prep from tags if present
+    const tagSet = new Set(input.tags ?? []);
+    const prep = tagSet.has("Broiled")
+      ? "Broiled"
+      : tagSet.has("Fried")
+        ? "Fried"
+        : null;
+    // Derive style from tags
+    const style = tagSet.has("Jumbo Lump")
+      ? "Jumbo Lump"
+      : tagSet.has("Lump")
+        ? "Lump"
+        : tagSet.has("Imperial")
+          ? "Imperial"
+          : null;
+    const filler = tagSet.has("Minimal Filler")
+      ? "Minimal"
+      : tagSet.has("Heavy Filler")
+        ? "Heavy"
+        : null;
+
+    await db
+      .update(spots)
+      .set({
+        boysScore: score.toFixed(1),
+        boysReviewQuote: input.note ?? null,
+        boysReviewPrep: prep ?? undefined,
+        boysReviewDate: new Date().toISOString().slice(0, 10),
+        // Only overwrite these spec fields if admin actually picked a matching tag
+        prep: prep ?? undefined,
+        style: style ?? undefined,
+        filler: filler ?? undefined,
+        photoUrl: input.photoUrl ?? undefined,
+      })
+      .where(eq(spots.id, input.spotId));
+    revalidatePath("/lists");
+  }
+
   revalidatePath(`/spot/${input.spotId}`);
   revalidatePath(`/me`);
   revalidatePath(`/`);
-  return { ok: true };
+  return { ok: true, asBoys };
 }
 
 export async function toggleBookmark(spotId: string) {
@@ -264,6 +313,34 @@ export async function removeSpotFromCollection(
     );
   revalidatePath(`/list/${collectionId}`);
   revalidatePath(`/admin/collections/${collectionId}`);
+  return { ok: true };
+}
+
+export async function createTag(label: string) {
+  await requireAdmin();
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("Label required");
+  const id = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  if (!id) throw new Error("Invalid label");
+  try {
+    await db.insert(tags).values({ id, label: trimmed });
+  } catch {
+    throw new Error("Tag already exists");
+  }
+  revalidatePath("/admin/tags");
+  revalidatePath("/rate");
+  return { ok: true, id };
+}
+
+export async function deleteTag(id: string) {
+  await requireAdmin();
+  await db.delete(tags).where(eq(tags.id, id));
+  revalidatePath("/admin/tags");
+  revalidatePath("/rate");
   return { ok: true };
 }
 

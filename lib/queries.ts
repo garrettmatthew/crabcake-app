@@ -7,6 +7,7 @@ import {
   users,
   collections,
   collectionSpots,
+  tags,
 } from "./db/schema";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
@@ -79,12 +80,12 @@ export async function listSpots(): Promise<SpotWithStats[]> {
       communityScore: sql<string | null>`(
         SELECT ROUND(AVG(score)::numeric, 1)
         FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id}
+        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
       )`,
       communityCount: sql<number>`(
         SELECT COUNT(*)::int
         FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id}
+        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
       )`,
       userRating: user
         ? sql<string | null>`(
@@ -153,12 +154,12 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
       communityScore: sql<string | null>`(
         SELECT ROUND(AVG(score)::numeric, 1)
         FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id}
+        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
       )`,
       communityCount: sql<number>`(
         SELECT COUNT(*)::int
         FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id}
+        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
       )`,
       userRating: user
         ? sql<string | null>`(
@@ -228,7 +229,7 @@ export async function listCommunityReviews(
       avatarSwatch: sql<string | null>`(SELECT avatar_swatch FROM users WHERE users.id = ${ratings.userId})`,
     })
     .from(ratings)
-    .where(eq(ratings.spotId, spotId))
+    .where(and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, false)))
     .orderBy(desc(ratings.createdAt))
     .limit(limit);
 }
@@ -327,6 +328,10 @@ export async function listCollectionSpots(collectionId: string) {
     .innerJoin(spots, eq(spots.id, collectionSpots.spotId))
     .where(eq(collectionSpots.collectionId, collectionId))
     .orderBy(asc(collectionSpots.position), desc(spots.boysScore));
+}
+
+export async function listTags() {
+  return db.select().from(tags).orderBy(asc(tags.position), asc(tags.label));
 }
 
 export async function listAllUsers() {

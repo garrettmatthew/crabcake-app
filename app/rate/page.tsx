@@ -1,4 +1,4 @@
-import { listSpots } from "@/lib/queries";
+import { listSpots, listTags } from "@/lib/queries";
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
 import RateForm from "@/components/RateForm";
 import { redirect } from "next/navigation";
@@ -14,8 +14,15 @@ export default async function RatePage({
     redirect(`/sign-in?redirect_url=/rate${spot ? `?spot=${spot}` : ""}`);
   }
   const { spot: spotParam } = await searchParams;
-  const spots = await listSpots();
+  const [spots, tags] = await Promise.all([listSpots(), listTags()]);
   const selected = spots.find((s) => s.id === spotParam) ?? spots[0];
 
-  return <RateForm spots={spots} initialSpot={selected} />;
+  return (
+    <RateForm
+      spots={spots}
+      initialSpot={selected}
+      isAdmin={user?.role === "admin"}
+      tagOptions={tags.map((t) => t.label)}
+    />
+  );
 }
