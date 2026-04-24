@@ -159,6 +159,33 @@ a { color: inherit; text-decoration: none; }
 .marker-pin .saved-badge svg { width: 9px; height: 9px; }
 .marker-container { background: transparent !important; border: none !important; }
 
+/* User location dot — pulsing blue, pixel-stable */
+.location-dot-wrap {
+  position: relative;
+  width: 16px; height: 16px;
+}
+.location-dot-core {
+  position: absolute;
+  inset: 0;
+  background: #3b82f6;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(59,130,246,.4);
+  z-index: 2;
+}
+.location-dot-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #3b82f6;
+  opacity: .5;
+  animation: location-pulse 2.2s ease-out infinite;
+}
+@keyframes location-pulse {
+  0% { transform: scale(1); opacity: .5; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
 /* Ring score badges (small variants) */
 .ring {
   width: 42px; height: 42px;

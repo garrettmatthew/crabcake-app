@@ -49,16 +49,19 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
               longitude >= -145 &&
               longitude <= -55
             ) {
-              map.flyTo([latitude, longitude], 10, { duration: 1.2 });
-              // Drop a "you are here" dot
-              L.circleMarker([latitude, longitude], {
-                radius: 8,
-                fillColor: "#3b82f6",
-                fillOpacity: 1,
-                color: "#fff",
-                weight: 3,
+              // Pixel-stable divIcon with pulsing ring (doesn't scale with zoom)
+              const dot = L.divIcon({
+                className: "marker-container",
+                html: `<div class="location-dot-wrap"><div class="location-dot-pulse"></div><div class="location-dot-core"></div></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+              });
+              L.marker([latitude, longitude], {
+                icon: dot,
                 interactive: false,
+                keyboard: false,
               }).addTo(map);
+              map.flyTo([latitude, longitude], 11, { duration: 1.2 });
             }
           },
           () => {
