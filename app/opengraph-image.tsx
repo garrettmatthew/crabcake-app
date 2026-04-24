@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Crabcake — every crab cake in America, ranked";
+export const alt = "Crabcakes — every crab cake in America, ranked";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -94,7 +94,7 @@ export default async function OpengraphImage() {
             display: "flex",
           }}
         >
-          Crabcake<span style={{ color: "#e83d35" }}>.</span>
+          Crabcakes<span style={{ color: "#e83d35" }}>.</span>
         </div>
 
         {/* Tagline */}

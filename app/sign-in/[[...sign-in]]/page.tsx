@@ -13,7 +13,7 @@ export default function SignInPage() {
           <CrabLogo size={32} />
         </div>
         <div className="leading-tight">
-          <div className="font-display font-extrabold text-2xl tracking-tight">Crabcake</div>
+          <div className="font-display font-extrabold text-2xl tracking-tight">Crabcakes</div>
           <div className="font-mono text-[10px] tracking-[.1em] uppercase text-[var(--ink-3)]">
             by the Baltimore Boys
           </div>
