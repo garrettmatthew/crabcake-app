@@ -1,26 +1,184 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:        #f6f2ea;
+  --bg-2:      #eeeadf;
+  --panel:     #ffffff;
+  --panel-2:   #fbf8f1;
+  --border:    #e7e1d3;
+  --border-2:  #d4ccb8;
+  --ink:       #1a1612;
+  --ink-2:     #403a31;
+  --ink-3:     #78716a;
+  --ink-4:     #aaa295;
+  --crab:      #e83d35;
+  --crab-2:    #c12c24;
+  --crab-soft: #fbe8e6;
+  --gold:      #e4b248;
+  --gold-2:    #c8952d;
+  --gold-soft: #fbf0d4;
+  --green:     #5a9660;
+  --green-soft:#e4efe0;
+}
+
+[data-theme="dark"] {
+  --bg: #120f0d;
+  --bg-2: #1a1612;
+  --panel: #221c17;
+  --panel-2: #2a221c;
+  --border: #312921;
+  --border-2: #433a2f;
+  --ink: #f3ede1;
+  --ink-2: #d0c5b3;
+  --ink-3: #8a8075;
+  --ink-4: #5c5449;
+  --crab: #f25a4f;
+  --crab-2: #e83d35;
+  --crab-soft: #3a1a16;
+  --gold: #f0c067;
+  --gold-2: #d4a84a;
+  --gold-soft: #2e2414;
+  --green: #7fb884;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-border-ui: var(--border);
+  --color-border-2: var(--border-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-crab: var(--crab);
+  --color-crab-2: var(--crab-2);
+  --color-crab-soft: var(--crab-soft);
+  --color-gold: var(--gold);
+  --color-gold-2: var(--gold-2);
+  --color-gold-soft: var(--gold-soft);
+  --color-green: var(--green);
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--bg-2); }
+body {
+  color: var(--ink);
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font-family: inherit; color: inherit; border: none; background: none; outline: none; }
+button { cursor: pointer; padding: 0; }
+a { color: inherit; text-decoration: none; }
+::-webkit-scrollbar { width: 0; height: 0; }
+
+.font-display { font-family: "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -.025em; font-optical-sizing: auto; }
+.font-mono { font-family: "JetBrains Mono", monospace; }
+
+/* App shell — phone frame on desktop, full bleed on mobile */
+.shell {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse at 20% 80%, rgba(228,178,72,.12), transparent 55%),
+    radial-gradient(ellipse at 90% 10%, rgba(232,61,53,.08), transparent 55%),
+    var(--bg-2);
+  overflow: hidden;
+}
+.device {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 720px) {
+  .shell { padding: 20px; }
+  .device {
+    width: 414px;
+    height: 860px;
+    max-height: calc(100vh - 40px);
+    border-radius: 50px;
+    box-shadow: 0 0 0 12px #1a1612, 0 0 0 14px #2a2420, 0 40px 80px -10px rgba(40,30,20,.35);
+  }
+  .device::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 26px;
+    background: #000;
+    border-radius: 0 0 16px 16px;
+    z-index: 1000;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.screen-root { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-top: env(safe-area-inset-top, 0px); }
+@media (min-width: 720px) { .screen-root { padding-top: 46px; } }
+
+/* Leaflet styling tweaks */
+.leaflet-container { font-family: "Manrope", sans-serif !important; background: var(--bg-2) !important; }
+.leaflet-control-attribution { font-size: 9px !important; background: rgba(255,255,255,.7) !important; color: var(--ink-3) !important; }
+
+.marker-pin {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -.03em;
+  box-shadow: 0 3px 8px rgba(0,0,0,.3);
+  cursor: pointer;
+  position: relative;
+}
+.marker-pin.elite { background: var(--gold); color: var(--ink); }
+.marker-pin.great { background: var(--crab); color: #fff; }
+.marker-pin.good  { background: #c98551; color: #fff; }
+.marker-pin.ok    { background: var(--ink-3); color: #fff; }
+.marker-pin .saved-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  width: 18px; height: 18px;
+  background: var(--gold);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink);
+}
+.marker-pin .saved-badge svg { width: 9px; height: 9px; }
+.marker-container { background: transparent !important; border: none !important; }
+
+/* Ring score badges (small variants) */
+.ring {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -.03em;
+  color: #fff;
+}
+.ring.sm { width: 34px; height: 34px; font-size: 12px; }
+.ring.lg { width: 64px; height: 64px; font-size: 22px; }
+.ring.elite { background: var(--gold); color: var(--ink); }
+.ring.great { background: var(--crab); }
+.ring.good  { background: #c98551; }
+.ring.ok    { background: var(--ink-3); }
+
+/* Animation */
+@keyframes float-y { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
