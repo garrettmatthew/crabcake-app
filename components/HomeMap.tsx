@@ -244,14 +244,17 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         </button>
       </div>
 
-      {/* Bottom sheet */}
+      {/* Bottom sheet — stops above the tab bar */}
       <div
         ref={sheetRef}
-        className="absolute left-0 right-0 bottom-0 bg-[var(--panel)] rounded-t-3xl shadow-[0_-12px_32px_rgba(40,30,20,.15)] z-[400] flex flex-col"
+        className="absolute left-0 right-0 rounded-t-3xl shadow-[0_-12px_32px_rgba(40,30,20,.15)] flex flex-col"
         style={{
-          height: "70%",
+          bottom: "64px", // matches tab bar height
+          background: "var(--panel)",
+          height: "calc(70% - 64px)",
           transform: sheetTransform,
           transition: "transform .3s cubic-bezier(.2,.7,.3,1)",
+          zIndex: 400,
         }}
       >
         <div
@@ -274,7 +277,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           <span className="text-xs font-semibold text-[var(--crab)]">Boys ↓</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2.5 pb-20 pt-2">
+        <div className="flex-1 overflow-y-auto px-2.5 pb-4 pt-2">
           {spots.map((s, i) => (
             <Link
               href={`/spot/${s.id}`}

@@ -59,7 +59,14 @@ export default function TabBar() {
   };
 
   return (
-    <div className="tabs absolute bottom-0 left-0 right-0 h-16 bg-[var(--panel)] border-t border-[var(--border)] grid grid-cols-5 z-40">
+    <div
+      className="tabs absolute bottom-0 left-0 right-0 h-16 grid grid-cols-5"
+      style={{
+        background: "var(--panel)",
+        borderTop: "1px solid var(--border)",
+        zIndex: 1000,
+      }}
+    >
       <Link
         href="/"
         className={`flex flex-col items-center justify-center gap-[3px] py-1.5 ${
