@@ -84,18 +84,6 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         subdomains: "abcd",
       }).addTo(map);
 
-      // Baltimore "home" ring
-      L.marker([39.2904, -76.6122], {
-        icon: L.divIcon({
-          className: "marker-container",
-          html: `<div style="width:80px;height:80px;border:2px dashed var(--crab);background:rgba(232,61,53,.1);border-radius:50%;"></div>`,
-          iconSize: [80, 80],
-          iconAnchor: [40, 40],
-        }),
-        interactive: false,
-        keyboard: false,
-      }).addTo(map);
-
       // Add markers — Boys score if available, else Google rating with star pip
       for (const s of spots) {
         const savedBadge = s.isSaved
@@ -106,11 +94,11 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           const cls = scoreClass(s.boysScore);
           html = `<div class="marker-pin ${cls}">${s.boysScore.toFixed(1)}${savedBadge}</div>`;
         } else if (s.googleRating != null) {
-          // Google fallback — neutral pin with smaller text + star
+          // Google fallback — display on /10 scale (×2) so it's comparable to Boys
+          const onTen = (s.googleRating * 2).toFixed(1);
           html =
-            `<div class="marker-pin marker-google" style="background:var(--panel);color:var(--ink);border-color:var(--border-2);font-size:12px;">` +
-            `<svg width="9" height="9" viewBox="0 0 24 24" fill="#fbbc04" style="margin-right:2px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>` +
-            s.googleRating.toFixed(1) +
+            `<div class="marker-pin marker-google" style="background:var(--panel);color:var(--ink);border-color:var(--border-2);font-size:13px;">` +
+            onTen +
             savedBadge +
             "</div>";
         } else {
@@ -368,7 +356,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
                     }}
                   >
                     <span className="font-display font-extrabold text-[14px] tracking-tight text-[var(--ink)]">
-                      {s.googleRating.toFixed(1)}
+                      {(s.googleRating * 2).toFixed(1)}
                     </span>
                   </div>
                   <div
