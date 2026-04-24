@@ -133,54 +133,67 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
     const sheet = sheetRef.current;
     if (!handle || !sheet) return;
 
-    let dragging = false;
+    let pointerId: number | null = null;
     let startY = 0;
     let startTop = 0;
+    let dragged = false;
 
-    function start(e: MouseEvent | TouchEvent) {
-      dragging = true;
-      const y = "touches" in e ? e.touches[0].clientY : e.clientY;
-      startY = y;
+    function onDown(e: PointerEvent) {
+      pointerId = e.pointerId;
+      try {
+        handle!.setPointerCapture(e.pointerId);
+      } catch {}
+      startY = e.clientY;
       startTop = sheet!.getBoundingClientRect().top;
       sheet!.style.transition = "none";
-      if (e.cancelable) e.preventDefault();
+      dragged = false;
     }
-    function move(e: MouseEvent | TouchEvent) {
-      if (!dragging) return;
-      const y = "touches" in e ? e.touches[0].clientY : e.clientY;
-      const dy = y - startY;
+
+    function onMove(e: PointerEvent) {
+      if (pointerId == null || pointerId !== e.pointerId) return;
+      const dy = e.clientY - startY;
+      if (Math.abs(dy) > 4) dragged = true;
+      if (!dragged) return;
       const parent = sheet!.parentElement!.getBoundingClientRect();
       const offsetInParent = startTop + dy - parent.top;
       const clamped = Math.max(0, Math.min(parent.height - 80, offsetInParent));
       sheet!.style.transform = `translateY(${clamped}px)`;
-      if (e.cancelable) e.preventDefault();
+      e.preventDefault();
     }
-    function end() {
-      if (!dragging) return;
-      dragging = false;
+
+    function onUp(e: PointerEvent) {
+      if (pointerId == null || pointerId !== e.pointerId) return;
+      try {
+        handle!.releasePointerCapture(e.pointerId);
+      } catch {}
+      pointerId = null;
       sheet!.style.transition = "";
+
+      if (!dragged) {
+        // Pure tap → cycle through states
+        setSheetState((s) =>
+          s === "peek" ? "mid" : s === "mid" ? "expanded" : "peek"
+        );
+        return;
+      }
       const parent = sheet!.parentElement!.getBoundingClientRect();
       const top = sheet!.getBoundingClientRect().top - parent.top;
       const pct = top / parent.height;
       sheet!.style.transform = "";
-      if (pct < 0.15) setSheetState("expanded");
+      if (pct < 0.18) setSheetState("expanded");
       else if (pct < 0.55) setSheetState("mid");
       else setSheetState("peek");
     }
 
-    handle.addEventListener("mousedown", start);
-    handle.addEventListener("touchstart", start, { passive: false });
-    window.addEventListener("mousemove", move);
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("mouseup", end);
-    window.addEventListener("touchend", end);
+    handle.addEventListener("pointerdown", onDown);
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
     return () => {
-      handle.removeEventListener("mousedown", start);
-      handle.removeEventListener("touchstart", start);
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("mouseup", end);
-      window.removeEventListener("touchend", end);
+      handle.removeEventListener("pointerdown", onDown);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
     };
   }, []);
 
@@ -260,10 +273,8 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
       >
         <div
           ref={handleRef}
-          className="py-2.5 flex justify-center cursor-grab select-none flex-shrink-0"
-          onClick={() => {
-            setSheetState((s) => (s === "peek" ? "mid" : s === "mid" ? "expanded" : "peek"));
-          }}
+          className="py-3 flex justify-center cursor-grab select-none flex-shrink-0"
+          style={{ touchAction: "none" }}
         >
           <div className="w-11 h-[5px] rounded-full bg-[var(--border-2)]" />
         </div>
