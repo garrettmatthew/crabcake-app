@@ -117,7 +117,11 @@ export async function listSpots(): Promise<SpotWithStats[]> {
     })
     .from(spots)
     .where(eq(spots.isPublished, true))
-    .orderBy(desc(spots.boysScore));
+    .orderBy(
+      sql`${spots.boysScore} DESC NULLS LAST`,
+      sql`${spots.googleRating} DESC NULLS LAST`,
+      sql`${spots.googleRatingCount} DESC NULLS LAST`
+    );
 
   return rows.map(normalizeSpot);
 }
