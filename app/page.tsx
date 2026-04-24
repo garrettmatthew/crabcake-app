@@ -20,7 +20,14 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="px-3.5 pt-1.5 pb-2.5 flex items-center gap-2.5 relative z-[30] flex-shrink-0">
+      <div
+        className="px-3.5 pt-1.5 pb-2.5 flex items-center gap-2.5 flex-shrink-0"
+        style={{
+          position: "relative",
+          zIndex: 500,
+          background: "var(--bg)",
+        }}
+      >
         <div
           className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0 text-white"
           style={{ background: "var(--crab)" }}
