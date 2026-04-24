@@ -4,11 +4,6 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
-/**
- * hasClerk: true when Clerk keys are set.
- * When false, the app runs in DEV AUTH mode — a cookie identifies the current user.
- * This lets the backend work end-to-end before Clerk is wired up.
- */
 export const hasClerk = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
 );
@@ -16,8 +11,9 @@ export const hasClerk = Boolean(
 const DEMO_COOKIE = "crabcake_demo_user";
 
 /**
- * Returns the current user's DB row. Creates one if missing.
- * Works with Clerk (real auth) or falls back to a cookie-based demo user.
+ * Returns the current user's DB row, creating one if needed.
+ * In dev mode, the middleware sets the demo cookie on first visit.
+ * In Clerk mode, we resolve the Clerk user.
  */
 export async function getCurrentUser() {
   if (hasClerk) {
@@ -26,7 +22,6 @@ export async function getCurrentUser() {
     if (!userId) return null;
     const row = await db.query.users.findFirst({ where: eq(users.clerkId, userId) });
     if (row) return row;
-    // First time seeing this Clerk user — create their DB row.
     const cu = await currentUser();
     const id = nanoid();
     const [created] = await db
@@ -36,7 +31,9 @@ export async function getCurrentUser() {
         clerkId: userId,
         email: cu?.primaryEmailAddress?.emailAddress ?? null,
         displayName:
-          (cu?.firstName && cu?.lastName ? `${cu.firstName} ${cu.lastName}` : cu?.firstName) ??
+          (cu?.firstName && cu?.lastName
+            ? `${cu.firstName} ${cu.lastName}`
+            : cu?.firstName) ??
           cu?.username ??
           null,
       })
@@ -44,37 +41,10 @@ export async function getCurrentUser() {
     return created;
   }
 
-  // Dev mode — read cookie; on first visit, create a demo user.
+  // Dev mode — read cookie set by middleware; create DB row on first access.
   const jar = await cookies();
-  let demoId = jar.get(DEMO_COOKIE)?.value;
-  if (!demoId) {
-    demoId = nanoid();
-    // cookies.set is only valid in Server Actions / Route Handlers, so we
-    // fall back to looking up OR creating in a route-safe pattern below.
-  }
-  if (demoId) {
-    const row = await db.query.users.findFirst({ where: eq(users.clerkId, `demo_${demoId}`) });
-    if (row) return row;
-  }
-  // Auto-seed a demo user and return without setting a cookie
-  // (the /api/auth/demo route sets it).
-  return null;
-}
-
-/** For use in Server Actions / Route Handlers — can set cookies. */
-export async function ensureDemoUser() {
-  if (hasClerk) return getCurrentUser();
-  const jar = await cookies();
-  let demoId = jar.get(DEMO_COOKIE)?.value;
-  if (!demoId) {
-    demoId = nanoid();
-    jar.set(DEMO_COOKIE, demoId, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
-  }
+  const demoId = jar.get(DEMO_COOKIE)?.value;
+  if (!demoId) return null; // middleware hasn't run yet
   const clerkId = `demo_${demoId}`;
   const existing = await db.query.users.findFirst({ where: eq(users.clerkId, clerkId) });
   if (existing) return existing;
@@ -92,8 +62,11 @@ export async function ensureDemoUser() {
   return created;
 }
 
+/** Alias used throughout the app — same as getCurrentUser now. */
+export const ensureDemoUser = getCurrentUser;
+
 export async function requireUser() {
-  const user = await ensureDemoUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated");
   return user;
 }
