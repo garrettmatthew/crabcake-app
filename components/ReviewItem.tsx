@@ -5,6 +5,7 @@ type Review = {
   score: string;
   note: string | null;
   tags: string[] | null;
+  photoUrl?: string | null;
   createdAt: Date | string;
   userName: string | null;
   avatarSwatch: string | null;
@@ -63,6 +64,12 @@ export default function ReviewItem({ review }: { review: Review }) {
       </div>
       {review.note && (
         <div className="text-[13px] text-[var(--ink-2)] leading-[1.4]">{review.note}</div>
+      )}
+      {review.photoUrl && (
+        <div
+          className="mt-2 rounded-xl bg-cover bg-center h-36"
+          style={{ backgroundImage: `url(${review.photoUrl})` }}
+        />
       )}
     </div>
   );

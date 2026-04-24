@@ -20,16 +20,35 @@ export async function getCurrentUser() {
     const { auth, currentUser } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
     if (!userId) return null;
-    const row = await db.query.users.findFirst({ where: eq(users.clerkId, userId) });
-    if (row) return row;
     const cu = await currentUser();
+    const email = cu?.primaryEmailAddress?.emailAddress ?? null;
+    const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const shouldBeAdmin = email != null && adminEmails.includes(email.toLowerCase());
+
+    const row = await db.query.users.findFirst({ where: eq(users.clerkId, userId) });
+    if (row) {
+      // Auto-elevate if email matches ADMIN_EMAILS
+      if (shouldBeAdmin && row.role !== "admin") {
+        const [updated] = await db
+          .update(users)
+          .set({ role: "admin" })
+          .where(eq(users.id, row.id))
+          .returning();
+        return updated;
+      }
+      return row;
+    }
     const id = nanoid();
     const [created] = await db
       .insert(users)
       .values({
         id,
         clerkId: userId,
-        email: cu?.primaryEmailAddress?.emailAddress ?? null,
+        email,
+        role: shouldBeAdmin ? "admin" : "user",
         displayName:
           (cu?.firstName && cu?.lastName
             ? `${cu.firstName} ${cu.lastName}`
@@ -54,8 +73,7 @@ export async function getCurrentUser() {
     .values({
       id,
       clerkId,
-      displayName: "Ray Lewis",
-      bio: "Baltimore native. On a mission to rank every crab cake in America.",
+      displayName: null,
       avatarSwatch: "g1",
     })
     .returning();
@@ -68,5 +86,11 @@ export const ensureDemoUser = getCurrentUser;
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated");
+  return user;
+}
+
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "admin") throw new Error("Forbidden");
   return user;
 }

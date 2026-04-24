@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { spots, ratings, bookmarks } from "./db/schema";
+import { spots, ratings, bookmarks, submissions, users } from "./db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
 
@@ -196,6 +196,7 @@ export async function listCommunityReviews(
       score: ratings.score,
       note: ratings.note,
       tags: ratings.tags,
+      photoUrl: ratings.photoUrl,
       createdAt: ratings.createdAt,
       userId: ratings.userId,
       userName: sql<string | null>`(SELECT display_name FROM users WHERE users.id = ${ratings.userId})`,
@@ -227,6 +228,28 @@ export async function listMyRatings() {
     .innerJoin(spots, eq(spots.id, ratings.spotId))
     .where(eq(ratings.userId, user.id))
     .orderBy(desc(ratings.createdAt));
+}
+
+export async function listPendingSubmissions() {
+  return db
+    .select({
+      id: submissions.id,
+      name: submissions.name,
+      city: submissions.city,
+      address: submissions.address,
+      note: submissions.note,
+      status: submissions.status,
+      createdAt: submissions.createdAt,
+      userDisplayName: users.displayName,
+    })
+    .from(submissions)
+    .leftJoin(users, eq(users.id, submissions.userId))
+    .where(eq(submissions.status, "pending"))
+    .orderBy(desc(submissions.createdAt));
+}
+
+export async function listAllSpots() {
+  return db.select().from(spots).orderBy(desc(spots.boysScore));
 }
 
 export async function listMyBookmarks() {

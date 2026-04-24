@@ -42,7 +42,7 @@ export default async function MePage() {
 
   const ratings = await listMyRatings();
 
-  const initials = (user?.displayName ?? "RL")
+  const initials = (user?.displayName ?? "—")
     .split(/\s+/)
     .slice(0, 2)
     .map((p) => p[0])
@@ -98,11 +98,11 @@ export default async function MePage() {
             <div
               className="w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center font-display font-extrabold text-xl tracking-tight border-[1.5px] border-white/30"
             >
-              {initials || "RL"}
+              {initials || "—"}
             </div>
             <div className="flex-1">
               <div className="font-display font-bold text-lg tracking-tight leading-[1.1]">
-                {user?.displayName ?? "Ray Lewis"}
+                {user?.displayName ?? "You"}
               </div>
               <div className="text-xs opacity-90 mt-0.5">
                 {user?.homeCity ?? "Baltimore, MD"}

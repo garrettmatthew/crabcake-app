@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   avatarSwatch: text("avatar_swatch").default("g1"),
   homeCity: text("home_city").default("Baltimore, MD"),
   bio: text("bio"),
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

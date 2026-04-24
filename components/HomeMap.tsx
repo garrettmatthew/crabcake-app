@@ -37,6 +37,37 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
       });
       mapRef.current = map;
 
+      // Ask for user location; center & zoom if granted.
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            // Only auto-fly if the location is within US bounds
+            if (
+              latitude >= 15 &&
+              latitude <= 55 &&
+              longitude >= -145 &&
+              longitude <= -55
+            ) {
+              map.flyTo([latitude, longitude], 10, { duration: 1.2 });
+              // Drop a "you are here" dot
+              L.circleMarker([latitude, longitude], {
+                radius: 8,
+                fillColor: "#3b82f6",
+                fillOpacity: 1,
+                color: "#fff",
+                weight: 3,
+                interactive: false,
+              }).addTo(map);
+            }
+          },
+          () => {
+            /* permission denied — keep USA default */
+          },
+          { timeout: 6000, maximumAge: 5 * 60 * 1000 }
+        );
+      }
+
       const tileUrl =
         document.documentElement.getAttribute("data-theme") === "dark"
           ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -163,7 +194,22 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
       {/* Map float buttons */}
       <div className="absolute top-3 right-3 z-[4] flex flex-col gap-1.5">
         <button
-          onClick={() => mapRef.current?.flyTo([39.29, -76.61], 10, { duration: 1.2 })}
+          onClick={() => {
+            if (navigator.geolocation && mapRef.current) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  mapRef.current?.flyTo(
+                    [pos.coords.latitude, pos.coords.longitude],
+                    12,
+                    { duration: 1 }
+                  );
+                },
+                () => {
+                  mapRef.current?.flyTo([39.29, -76.61], 10, { duration: 1.2 });
+                }
+              );
+            }
+          }}
           className="w-10 h-10 rounded-full bg-[var(--panel)] border border-[var(--border)] flex items-center justify-center text-[var(--ink-2)] shadow-md"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">

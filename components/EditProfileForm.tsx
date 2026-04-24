@@ -30,12 +30,12 @@ export default function EditProfileForm({
   const [swatch, setSwatch] = useState(initialSwatch);
   const [pending, startTransition] = useTransition();
 
-  const initials = (displayName || "RL")
+  const initials = (displayName || "—")
     .split(/\s+/)
     .slice(0, 2)
     .map((p) => p[0])
     .join("")
-    .toUpperCase() || "RL";
+    .toUpperCase() || "—";
 
   const activeGradient = SWATCHES.find((s) => s[0] === swatch)?.[1] ?? SWATCHES[0][1];
 

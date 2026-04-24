@@ -31,9 +31,12 @@ export default function RateForm({
   const [score, setScore] = useState(spot.userRating ?? 8.4);
   const [note, setNote] = useState(spot.userNote ?? "");
   const [tags, setTags] = useState<string[]>(spot.userTags ?? []);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Reset form when spot changes
   useEffect(() => {
@@ -86,9 +89,29 @@ export default function RateForm({
     setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   }
 
+  async function handleFile(file: File) {
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+        method: "POST",
+        body: file,
+      });
+      const data = await res.json();
+      if (data.url) setPhotoUrl(data.url);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function onSubmit() {
     startTransition(async () => {
-      await submitRating({ spotId, score, note: note || undefined, tags });
+      await submitRating({
+        spotId,
+        score,
+        note: note || undefined,
+        tags,
+        photoUrl: photoUrl || undefined,
+      });
       setSuccess(true);
       if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([15, 50, 30]);
       setTimeout(() => {
@@ -267,9 +290,71 @@ export default function RateForm({
           className="w-full bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3.5 py-3 text-[13.5px] leading-[1.4] min-h-20 resize-none text-[var(--ink)] mb-2.5"
         />
 
+        {/* Photo upload */}
+        <label
+          htmlFor="photo-upload"
+          className="flex items-center gap-2.5 bg-[var(--panel)] border border-dashed border-[var(--border-2)] rounded-2xl px-3.5 py-3 mb-2.5 cursor-pointer"
+        >
+          {photoUrl ? (
+            <>
+              <div
+                className="w-12 h-12 rounded-xl bg-cover bg-center flex-shrink-0"
+                style={{ backgroundImage: `url(${photoUrl})` }}
+              />
+              <div className="flex-1">
+                <div className="text-[13px] font-bold">Photo attached</div>
+                <div className="text-[10.5px] text-[var(--ink-3)]">Tap to replace</div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPhotoUrl(null);
+                }}
+                className="w-7 h-7 rounded-full bg-[var(--bg-2)] flex items-center justify-center text-[var(--ink-3)]"
+              >
+                ×
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-[34px] h-[34px] rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--ink-2)]">
+                {uploading ? (
+                  <div className="w-4 h-4 border-2 border-[var(--border-2)] border-t-[var(--crab)] rounded-full animate-spin" />
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="text-[13px] font-bold">
+                  {uploading ? "Uploading…" : "Add a photo"}
+                </div>
+                <div className="text-[10.5px] text-[var(--ink-3)]">
+                  Optional · JPG, PNG, HEIC
+                </div>
+              </div>
+            </>
+          )}
+          <input
+            id="photo-upload"
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+        </label>
+
         <button
           onClick={onSubmit}
-          disabled={pending}
+          disabled={pending || uploading}
           className="h-[52px] w-full bg-[var(--crab)] text-white rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 mt-2 disabled:opacity-70"
         >
           {pending ? "Posting…" : "Post rating →"}

@@ -2,18 +2,21 @@ import { listSpots } from "@/lib/queries";
 import { ensureDemoUser } from "@/lib/auth";
 import HomeMap from "@/components/HomeMap";
 import CrabLogo from "@/components/CrabLogo";
+import SearchBar from "@/components/SearchBar";
 import Link from "next/link";
 
 export default async function HomePage() {
   const user = await ensureDemoUser();
   const spots = await listSpots();
 
-  const initials = (user?.displayName ?? "RL")
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
+  const initials = user?.displayName
+    ? user.displayName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0])
+        .join("")
+        .toUpperCase()
+    : null;
 
   return (
     <>
@@ -24,22 +27,23 @@ export default async function HomePage() {
         >
           <CrabLogo size={26} />
         </div>
-        <div className="flex-1 h-10 bg-[var(--panel)] border border-[var(--border)] rounded-full px-3.5 flex items-center gap-2 min-w-0">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2} strokeLinecap="round">
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            placeholder="Search a spot, city, or zip"
-            className="flex-1 bg-transparent text-sm font-medium min-w-0 w-full"
-          />
-        </div>
+        <SearchBar />
         <Link
           href="/me"
           className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-white font-extrabold text-[13px]"
-          style={{ background: "linear-gradient(135deg, var(--crab), var(--gold))" }}
+          style={{
+            background: initials
+              ? "linear-gradient(135deg, var(--crab), var(--gold))"
+              : "var(--bg-2)",
+            color: initials ? "white" : "var(--ink-3)",
+          }}
         >
-          {initials || "RL"}
+          {initials ?? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+            </svg>
+          )}
         </Link>
       </div>
 
