@@ -174,6 +174,79 @@ export async function rejectSubmission(submissionId: string) {
   return { ok: true };
 }
 
+export async function enrichSpotFromGoogle(spotId: string) {
+  await requireAdmin();
+  const spot = await db.query.spots.findFirst({ where: eq(spots.id, spotId) });
+  if (!spot) throw new Error("Spot not found");
+  const { enrichFromGoogle } = await import("./google-places");
+  const enriched = await enrichFromGoogle(spot.id, spot.name, spot.city);
+  if (!enriched) return { ok: false, reason: "No Google match" };
+  await db
+    .update(spots)
+    .set({
+      googlePlaceId: enriched.googlePlaceId,
+      address: enriched.address ?? spot.address,
+      phone: enriched.phone,
+      website: enriched.website,
+      priceLevel: enriched.priceLevel ?? spot.priceLevel,
+      photoUrl: enriched.photoUrl ?? spot.photoUrl,
+      hoursJson: enriched.hoursJson,
+      googleRating: enriched.googleRating == null ? null : enriched.googleRating.toString(),
+      googleRatingCount: enriched.googleRatingCount,
+      neighborhood: enriched.neighborhood ?? spot.neighborhood,
+    })
+    .where(eq(spots.id, spotId));
+  revalidatePath(`/admin/spots/${spotId}`);
+  revalidatePath(`/spot/${spotId}`);
+  revalidatePath("/");
+  return { ok: true, enriched };
+}
+
+export async function enrichAllSpotsFromGoogle() {
+  await requireAdmin();
+  const allSpots = await db.select().from(spots);
+  const results: Array<{ id: string; name: string; ok: boolean; reason?: string }> = [];
+  for (const spot of allSpots) {
+    try {
+      const { enrichFromGoogle } = await import("./google-places");
+      const enriched = await enrichFromGoogle(spot.id, spot.name, spot.city);
+      if (!enriched) {
+        results.push({ id: spot.id, name: spot.name, ok: false, reason: "No match" });
+        continue;
+      }
+      await db
+        .update(spots)
+        .set({
+          googlePlaceId: enriched.googlePlaceId,
+          address: enriched.address ?? spot.address,
+          phone: enriched.phone,
+          website: enriched.website,
+          priceLevel: enriched.priceLevel ?? spot.priceLevel,
+          photoUrl: enriched.photoUrl ?? spot.photoUrl,
+          hoursJson: enriched.hoursJson,
+          googleRating:
+            enriched.googleRating == null ? null : enriched.googleRating.toString(),
+          googleRatingCount: enriched.googleRatingCount,
+          neighborhood: enriched.neighborhood ?? spot.neighborhood,
+        })
+        .where(eq(spots.id, spot.id));
+      results.push({ id: spot.id, name: spot.name, ok: true });
+      // brief pause to respect rate limits
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (e) {
+      results.push({
+        id: spot.id,
+        name: spot.name,
+        ok: false,
+        reason: e instanceof Error ? e.message : "error",
+      });
+    }
+  }
+  revalidatePath("/admin/spots");
+  revalidatePath("/");
+  return { ok: true, results };
+}
+
 export async function postBoysReview(input: {
   spotId: string;
   score: number;

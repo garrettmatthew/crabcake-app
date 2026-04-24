@@ -1,13 +1,23 @@
 import Link from "next/link";
 import { listAllSpots } from "@/lib/queries";
+import BulkEnrichButton from "@/components/admin/BulkEnrichButton";
 
 export default async function AdminSpotsPage() {
   const spots = await listAllSpots();
+  const hasKey = Boolean(process.env.GOOGLE_PLACES_API_KEY);
   return (
     <div className="p-4">
-      <h2 className="font-display font-extrabold text-xl tracking-tight mb-3">
-        All spots ({spots.length})
-      </h2>
+      <div className="flex justify-between items-center mb-3 gap-2">
+        <h2 className="font-display font-extrabold text-xl tracking-tight">
+          Spots ({spots.length})
+        </h2>
+        {hasKey && <BulkEnrichButton />}
+      </div>
+      {!hasKey && (
+        <div className="bg-[var(--gold-soft)] border border-[var(--gold)] rounded-xl p-3 mb-3 text-[12.5px] leading-[1.45]">
+          <b>Google Places key not set.</b> Add <code className="font-mono text-[11px] bg-[var(--bg-2)] px-1 py-0.5 rounded">GOOGLE_PLACES_API_KEY</code> to Vercel env to enable auto-enrichment.
+        </div>
+      )}
       {spots.map((s) => (
         <Link
           key={s.id}

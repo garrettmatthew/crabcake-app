@@ -46,6 +46,11 @@ export const spots = pgTable("spots", {
   side: text("side"),
   isPublished: boolean("is_published").notNull().default(true),
   googlePlaceId: text("google_place_id").unique(),
+  phone: text("phone"),
+  website: text("website"),
+  hoursJson: text("hours_json"),
+  googleRating: numeric("google_rating", { precision: 2, scale: 1 }),
+  googleRatingCount: integer("google_rating_count"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

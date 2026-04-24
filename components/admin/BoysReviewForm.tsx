@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { postBoysReview } from "@/lib/actions";
+import { postBoysReview, enrichSpotFromGoogle } from "@/lib/actions";
 import { showToast } from "../Toast";
 
 export default function BoysReviewForm({
@@ -36,6 +36,24 @@ export default function BoysReviewForm({
   const [photoUrl, setPhotoUrl] = useState(spot.photoUrl ?? "");
   const [establishedYear, setEstablishedYear] = useState(spot.establishedYear ?? "");
   const [pending, startTransition] = useTransition();
+  const [enriching, setEnriching] = useState(false);
+
+  async function handleEnrich() {
+    setEnriching(true);
+    try {
+      const res = await enrichSpotFromGoogle(spot.id);
+      if (res.ok && res.enriched) {
+        if (res.enriched.photoUrl) setPhotoUrl(res.enriched.photoUrl);
+        showToast("Pulled from Google — check photo + address");
+      } else {
+        showToast("No Google match found");
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Enrich failed");
+    } finally {
+      setEnriching(false);
+    }
+  }
 
   function save() {
     startTransition(async () => {
@@ -63,18 +81,33 @@ export default function BoysReviewForm({
         <div
           className="w-14 h-14 rounded-xl bg-cover bg-center flex-shrink-0"
           style={{
-            backgroundImage: spot.photoUrl ? `url(${spot.photoUrl})` : undefined,
-            background: spot.photoUrl
+            backgroundImage: photoUrl ? `url(${photoUrl})` : undefined,
+            background: photoUrl
               ? undefined
               : "linear-gradient(135deg, #e8c185, #6b4024)",
           }}
         />
-        <div>
+        <div className="flex-1">
           <div className="font-display font-extrabold text-[18px] tracking-tight">
             {spot.name}
           </div>
           <div className="text-[12px] text-[var(--ink-3)]">{spot.city}</div>
         </div>
+        <button
+          type="button"
+          onClick={handleEnrich}
+          disabled={enriching}
+          className="h-9 px-3 rounded-full border border-[var(--border-2)] font-bold text-[12px] disabled:opacity-60 flex items-center gap-1.5"
+        >
+          {enriching ? (
+            <>
+              <div className="w-3 h-3 border-2 border-[var(--border-2)] border-t-[var(--crab)] rounded-full animate-spin" />
+              Fetching…
+            </>
+          ) : (
+            <>📸 Pull from Google</>
+          )}
+        </button>
       </div>
 
       <Field label="Boys score (0–10)">

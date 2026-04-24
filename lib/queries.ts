@@ -24,6 +24,11 @@ export type SpotWithStats = {
   size: string | null;
   price: string | null;
   side: string | null;
+  phone: string | null;
+  website: string | null;
+  hoursJson: string | null;
+  googleRating: number | null;
+  googleRatingCount: number | null;
   communityScore: number | null;
   communityCount: number;
   isSaved: boolean;
@@ -58,6 +63,11 @@ export async function listSpots(): Promise<SpotWithStats[]> {
       size: spots.size,
       price: spots.price,
       side: spots.side,
+      phone: spots.phone,
+      website: spots.website,
+      hoursJson: spots.hoursJson,
+      googleRating: spots.googleRating,
+      googleRatingCount: spots.googleRatingCount,
       communityScore: sql<string | null>`(
         SELECT ROUND(AVG(score)::numeric, 1)
         FROM ${ratings}
@@ -127,6 +137,11 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
       size: spots.size,
       price: spots.price,
       side: spots.side,
+      phone: spots.phone,
+      website: spots.website,
+      hoursJson: spots.hoursJson,
+      googleRating: spots.googleRating,
+      googleRatingCount: spots.googleRatingCount,
       communityScore: sql<string | null>`(
         SELECT ROUND(AVG(score)::numeric, 1)
         FROM ${ratings}
@@ -178,11 +193,13 @@ function normalizeSpot(row: Record<string, unknown>): SpotWithStats {
   const bs = row.boysScore;
   const cs = row.communityScore;
   const ur = row.userRating;
+  const gr = row.googleRating;
   return {
     ...(row as object),
     boysScore: bs == null ? null : parseFloat(bs as string),
     communityScore: cs == null ? null : parseFloat(cs as string),
     userRating: ur == null ? null : parseFloat(ur as string),
+    googleRating: gr == null ? null : parseFloat(gr as string),
   } as SpotWithStats;
 }
 
