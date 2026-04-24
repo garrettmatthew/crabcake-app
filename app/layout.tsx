@@ -58,32 +58,43 @@ export const viewport = {
   viewportFit: "cover",
 };
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Body({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="shell">
+      <div className="device">
+        <div className="screen-root">{children}</div>
+        <TabBar />
+        <Toast />
+      </div>
+    </div>
+  );
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
       className={`${bricolage.variable} ${manrope.variable} ${jetbrains.variable}`}
     >
       <body>
-        <div className="shell">
-          <div className="device">
-            <div className="screen-root">{children}</div>
-            <TabBar />
-            <Toast />
-          </div>
-        </div>
+        {hasClerk ? (
+          <ClerkProvider
+            appearance={{
+              variables: {
+                colorPrimary: "#e83d35",
+                colorBackground: "#ffffff",
+                colorText: "#1a1612",
+                fontFamily: "Manrope, system-ui, sans-serif",
+                borderRadius: "14px",
+              },
+            }}
+          >
+            <Body>{children}</Body>
+          </ClerkProvider>
+        ) : (
+          <Body>{children}</Body>
+        )}
       </body>
     </html>
   );
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  if (hasClerk) {
-    return (
-      <ClerkProvider>
-        <Shell>{children}</Shell>
-      </ClerkProvider>
-    );
-  }
-  return <Shell>{children}</Shell>;
 }

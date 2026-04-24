@@ -45,8 +45,13 @@ export default function TabBar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Hide on certain screens (rate modal, sign in)
-  if (pathname?.startsWith("/rate") || pathname?.startsWith("/sign-")) return null;
+  // Hide on certain screens (rate modal, sign in, sign up)
+  if (
+    pathname?.startsWith("/rate") ||
+    pathname?.startsWith("/sign-in") ||
+    pathname?.startsWith("/sign-up")
+  )
+    return null;
 
   const isActive = (p: string) => {
     if (p === "/") return pathname === "/";

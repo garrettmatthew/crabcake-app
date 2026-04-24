@@ -2,10 +2,11 @@
 
 import { db } from "./db";
 import { ratings, bookmarks, users } from "./db/schema";
-import { requireUser } from "./auth";
+import { getCurrentUser, requireUser } from "./auth";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function submitRating(input: {
   spotId: string;

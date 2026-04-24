@@ -1,10 +1,45 @@
 import Link from "next/link";
-import { ensureDemoUser } from "@/lib/auth";
+import { ensureDemoUser, hasClerk } from "@/lib/auth";
 import { listMyRatings } from "@/lib/queries";
 import ScoreCircle, { scoreClass } from "@/components/ScoreCircle";
+import CrabLogo from "@/components/CrabLogo";
 
 export default async function MePage() {
   const user = await ensureDemoUser();
+
+  // Clerk mode + not signed in → show sign-in prompt
+  if (hasClerk && !user) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 text-center">
+        <div
+          className="w-20 h-20 rounded-3xl flex items-center justify-center text-white mb-5"
+          style={{ background: "var(--crab)" }}
+        >
+          <CrabLogo size={48} />
+        </div>
+        <h2 className="font-display font-extrabold text-[28px] tracking-tight leading-none mb-2">
+          Sign in to rate.
+        </h2>
+        <p className="text-[14.5px] text-[var(--ink-2)] leading-[1.5] max-w-72 mb-6">
+          Your ratings, bookmarks, and taste profile — synced across every device.
+        </p>
+        <Link
+          href="/sign-in"
+          className="h-[52px] px-7 rounded-full bg-[var(--crab)] text-white font-extrabold text-[15px] inline-flex items-center gap-2 shadow-lg"
+          style={{ boxShadow: "0 4px 14px -4px rgba(232,61,53,.45)" }}
+        >
+          Sign in
+        </Link>
+        <Link
+          href="/sign-up"
+          className="mt-3 text-[13.5px] font-semibold text-[var(--ink-2)]"
+        >
+          No account? <span className="text-[var(--crab)]">Create one →</span>
+        </Link>
+      </div>
+    );
+  }
+
   const ratings = await listMyRatings();
 
   const initials = (user?.displayName ?? "RL")
@@ -38,16 +73,18 @@ export default async function MePage() {
           <h1 className="font-display text-[28px] font-extrabold tracking-tight leading-none">Me.</h1>
           <div className="text-xs text-[var(--ink-3)] font-medium mt-0.5">Your cake log + settings.</div>
         </div>
-        <Link
-          href="/me/edit"
-          className="w-9 h-9 rounded-full bg-[var(--panel)] border border-[var(--border)] flex items-center justify-center"
-          aria-label="Edit profile"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/me/edit"
+            className="w-9 h-9 rounded-full bg-[var(--panel)] border border-[var(--border)] flex items-center justify-center"
+            aria-label="Edit profile"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24">
