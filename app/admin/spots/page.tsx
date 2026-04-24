@@ -11,7 +11,15 @@ export default async function AdminSpotsPage() {
         <h2 className="font-display font-extrabold text-xl tracking-tight">
           Spots ({spots.length})
         </h2>
-        {hasKey && <BulkEnrichButton />}
+        <div className="flex gap-2">
+          <Link
+            href="/admin/spots/new"
+            className="h-10 px-4 bg-[var(--crab)] text-white rounded-full font-bold text-[13px] flex items-center gap-1.5"
+          >
+            + Add
+          </Link>
+          {hasKey && <BulkEnrichButton />}
+        </div>
       </div>
       {!hasKey && (
         <div className="bg-[var(--gold-soft)] border border-[var(--gold)] rounded-xl p-3 mb-3 text-[12.5px] leading-[1.45]">

@@ -174,6 +174,138 @@ export async function rejectSubmission(submissionId: string) {
   return { ok: true };
 }
 
+export async function setUserRole(userId: string, role: "user" | "admin") {
+  await requireAdmin();
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+function slugifyShort(s: string) {
+  return (
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "spot"
+  );
+}
+
+/**
+ * Admin-only: add a spot directly from a Google Places ID.
+ * Skips the submission queue and publishes immediately.
+ */
+export async function adminAddSpotByPlaceId(placeId: string) {
+  await requireAdmin();
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  if (!key) throw new Error("GOOGLE_PLACES_API_KEY not set");
+
+  // Check if we already have this place
+  const existing = await db.query.spots.findFirst({
+    where: eq(spots.googlePlaceId, placeId),
+  });
+  if (existing) {
+    revalidatePath("/");
+    revalidatePath("/admin/spots");
+    return { ok: true, spotId: existing.id, alreadyExisted: true };
+  }
+
+  // Fetch enough details to create the row
+  const detailsRes = await fetch(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+    {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask":
+          "id,displayName,formattedAddress,location,addressComponents",
+      },
+    }
+  );
+  if (!detailsRes.ok) {
+    const txt = await detailsRes.text();
+    throw new Error(`Details lookup failed: ${detailsRes.status} ${txt.slice(0, 200)}`);
+  }
+  const d = (await detailsRes.json()) as {
+    id: string;
+    displayName?: { text?: string };
+    formattedAddress?: string;
+    location?: { latitude?: number; longitude?: number };
+    addressComponents?: Array<{
+      longText: string;
+      shortText: string;
+      types: string[];
+    }>;
+  };
+
+  const name = d.displayName?.text;
+  const lat = d.location?.latitude;
+  const lng = d.location?.longitude;
+  if (!name || lat == null || lng == null) {
+    throw new Error("Missing required fields from Google");
+  }
+
+  const comps = d.addressComponents ?? [];
+  const cityName =
+    comps.find((c) => c.types.includes("locality"))?.longText ??
+    comps.find((c) => c.types.includes("postal_town"))?.longText ??
+    "";
+  const stateAbbr =
+    comps.find((c) => c.types.includes("administrative_area_level_1"))?.shortText ?? "";
+  const city = [cityName, stateAbbr].filter(Boolean).join(", ");
+
+  // Generate unique slug
+  let base = slugifyShort(name);
+  let candidate = base;
+  let i = 2;
+  while (await db.query.spots.findFirst({ where: eq(spots.id, candidate) })) {
+    candidate = `${base}-${i++}`;
+  }
+
+  await db.insert(spots).values({
+    id: candidate,
+    name,
+    city: city || "Unknown",
+    address: d.formattedAddress ?? null,
+    latitude: lat,
+    longitude: lng,
+    googlePlaceId: d.id,
+    isPublished: true,
+  });
+
+  // Immediately enrich with photo + phone + hours
+  try {
+    const { enrichFromGoogle } = await import("./google-places");
+    const enriched = await enrichFromGoogle(candidate, name, city);
+    if (enriched) {
+      await db
+        .update(spots)
+        .set({
+          googlePlaceId: enriched.googlePlaceId,
+          address: enriched.address ?? d.formattedAddress ?? null,
+          phone: enriched.phone,
+          website: enriched.website,
+          priceLevel: enriched.priceLevel,
+          photoUrl: enriched.photoUrl,
+          hoursJson: enriched.hoursJson,
+          googleRating:
+            enriched.googleRating == null ? null : enriched.googleRating.toString(),
+          googleRatingCount: enriched.googleRatingCount,
+          neighborhood: enriched.neighborhood,
+        })
+        .where(eq(spots.id, candidate));
+    }
+  } catch (e) {
+    console.warn("Enrichment after add failed", e);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/spots");
+  return { ok: true, spotId: candidate };
+}
+
 export async function enrichSpotFromGoogle(spotId: string) {
   await requireAdmin();
   const spot = await db.query.spots.findFirst({ where: eq(spots.id, spotId) });

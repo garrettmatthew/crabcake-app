@@ -23,16 +23,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </div>
       <div className="flex border-b border-[var(--border)] flex-shrink-0">
         <Link
-          href="/admin/submissions"
-          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
-        >
-          Submissions
-        </Link>
-        <Link
           href="/admin/spots"
           className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
         >
           Spots
+        </Link>
+        <Link
+          href="/admin/submissions"
+          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
+        >
+          Queue
+        </Link>
+        <Link
+          href="/admin/users"
+          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
+        >
+          Users
         </Link>
       </div>
       <div className="flex-1 overflow-y-auto pb-24">{children}</div>

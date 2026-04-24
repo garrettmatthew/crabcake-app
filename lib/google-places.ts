@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 
-const PLACES_BASE = "https://maps.googleapis.com/maps/api/place";
+// Places API (New) base
+const PLACES_V1 = "https://places.googleapis.com/v1";
 
 export type EnrichedPlace = {
   googlePlaceId: string;
@@ -15,10 +16,50 @@ export type EnrichedPlace = {
   neighborhood: string | null;
 };
 
+type PlacesV1TextResp = {
+  places?: Array<{ id: string; displayName?: { text?: string } }>;
+};
+
+type PlacesV1Details = {
+  id: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+  priceLevel?: string; // e.g. "PRICE_LEVEL_MODERATE"
+  photos?: Array<{ name: string }>;
+  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  rating?: number;
+  userRatingCount?: number;
+  addressComponents?: Array<{
+    longText: string;
+    shortText: string;
+    types: string[];
+  }>;
+};
+
+function priceLevelToNumber(level: string | undefined): number | null {
+  if (!level) return null;
+  switch (level) {
+    case "PRICE_LEVEL_FREE":
+      return 0;
+    case "PRICE_LEVEL_INEXPENSIVE":
+      return 1;
+    case "PRICE_LEVEL_MODERATE":
+      return 2;
+    case "PRICE_LEVEL_EXPENSIVE":
+      return 3;
+    case "PRICE_LEVEL_VERY_EXPENSIVE":
+      return 4;
+    default:
+      return null;
+  }
+}
+
 /**
- * Enrich a spot with data from Google Places API.
+ * Enrich a spot with data from Google Places API (New).
  * Downloads the top photo and uploads to Vercel Blob so the public URL
- * doesn't contain the API key.
+ * doesn't embed the API key.
  */
 export async function enrichFromGoogle(
   spotId: string,
@@ -28,54 +69,74 @@ export async function enrichFromGoogle(
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) throw new Error("GOOGLE_PLACES_API_KEY not set");
 
-  // 1. Text Search to find the place
-  const query = `${name} ${city}`;
-  const searchUrl = `${PLACES_BASE}/textsearch/json?query=${encodeURIComponent(query)}&key=${key}`;
-  const searchRes = await fetch(searchUrl);
-  if (!searchRes.ok) throw new Error(`Places search failed: ${searchRes.status}`);
-  const searchData = await searchRes.json();
-  const place = searchData.results?.[0];
-  if (!place?.place_id) return null;
+  // 1. Text Search (POST) — finds the matching place
+  const searchRes = await fetch(`${PLACES_V1}/places:searchText`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": "places.id,places.displayName",
+    },
+    body: JSON.stringify({
+      textQuery: `${name} ${city}`,
+      maxResultCount: 1,
+    }),
+  });
+  if (!searchRes.ok) {
+    const txt = await searchRes.text();
+    throw new Error(`Places search failed: ${searchRes.status} ${txt.slice(0, 200)}`);
+  }
+  const searchData = (await searchRes.json()) as PlacesV1TextResp;
+  const place = searchData.places?.[0];
+  if (!place?.id) return null;
 
-  // 2. Place Details for rich fields
-  const fields = [
-    "place_id",
-    "formatted_address",
-    "formatted_phone_number",
-    "website",
-    "price_level",
+  // 2. Place Details (GET) — rich fields
+  const fieldMask = [
+    "id",
+    "displayName",
+    "formattedAddress",
+    "nationalPhoneNumber",
+    "websiteUri",
+    "priceLevel",
     "photos",
-    "opening_hours",
+    "regularOpeningHours",
     "rating",
-    "user_ratings_total",
-    "address_components",
+    "userRatingCount",
+    "addressComponents",
   ].join(",");
-  const detailsUrl = `${PLACES_BASE}/details/json?place_id=${place.place_id}&fields=${fields}&key=${key}`;
-  const detailsRes = await fetch(detailsUrl);
-  if (!detailsRes.ok) throw new Error(`Places details failed: ${detailsRes.status}`);
-  const detailsData = await detailsRes.json();
-  const d = detailsData.result;
-  if (!d) return null;
 
-  // 3. Neighborhood from address_components
-  type Comp = { types: string[]; long_name: string };
-  const neighborhoodComp =
-    (d.address_components as Comp[] | undefined)?.find((c) =>
-      c.types.includes("neighborhood")
-    ) ??
-    (d.address_components as Comp[] | undefined)?.find((c) =>
-      c.types.includes("sublocality")
-    );
-  const neighborhood = neighborhoodComp?.long_name ?? null;
+  const detailsRes = await fetch(
+    `${PLACES_V1}/places/${encodeURIComponent(place.id)}`,
+    {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": fieldMask,
+      },
+    }
+  );
+  if (!detailsRes.ok) {
+    const txt = await detailsRes.text();
+    throw new Error(`Place details failed: ${detailsRes.status} ${txt.slice(0, 200)}`);
+  }
+  const d = (await detailsRes.json()) as PlacesV1Details;
+
+  // 3. Neighborhood from address components
+  const comps = d.addressComponents ?? [];
+  const neighborhood =
+    comps.find((c) => c.types.includes("neighborhood"))?.longText ??
+    comps.find((c) => c.types.includes("sublocality_level_1"))?.longText ??
+    comps.find((c) => c.types.includes("sublocality"))?.longText ??
+    null;
 
   // 4. Download top photo, upload to Vercel Blob
   let photoUrl: string | null = null;
-  const photoRef = d.photos?.[0]?.photo_reference as string | undefined;
-  if (photoRef) {
+  const photoName = d.photos?.[0]?.name; // e.g. "places/ChIJ.../photos/ATplDJa..."
+  if (photoName) {
     try {
-      const photoEndpoint =
-        `${PLACES_BASE}/photo?maxwidth=1600&photoreference=${photoRef}&key=${key}`;
-      const photoRes = await fetch(photoEndpoint, { redirect: "follow" });
+      // Places API (New) photo media endpoint
+      const photoMediaUrl = `${PLACES_V1}/${photoName}/media?maxHeightPx=1600&key=${key}`;
+      const photoRes = await fetch(photoMediaUrl, { redirect: "follow" });
       if (photoRes.ok) {
         const ct = photoRes.headers.get("content-type") ?? "image/jpeg";
         const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : "jpg";
@@ -83,31 +144,35 @@ export async function enrichFromGoogle(
         const blob = await put(`spots/${spotId}.${ext}`, buffer, {
           access: "public",
           contentType: ct,
-          addRandomSuffix: true, // so repeat enrichments don't collide
+          addRandomSuffix: true,
         });
         photoUrl = blob.url;
+      } else {
+        console.warn(
+          `Photo fetch failed for ${spotId}: ${photoRes.status} ${await photoRes.text()}`
+        );
       }
     } catch (e) {
       console.warn("Photo download failed for", spotId, e);
     }
   }
 
-  // 5. Hours — serialize weekday_text as simple JSON
+  // 5. Hours
   let hoursJson: string | null = null;
-  if (d.opening_hours?.weekday_text) {
-    hoursJson = JSON.stringify(d.opening_hours.weekday_text);
+  if (d.regularOpeningHours?.weekdayDescriptions) {
+    hoursJson = JSON.stringify(d.regularOpeningHours.weekdayDescriptions);
   }
 
   return {
-    googlePlaceId: place.place_id,
-    address: d.formatted_address ?? null,
-    phone: d.formatted_phone_number ?? null,
-    website: d.website ?? null,
-    priceLevel: d.price_level ?? null,
+    googlePlaceId: d.id,
+    address: d.formattedAddress ?? null,
+    phone: d.nationalPhoneNumber ?? null,
+    website: d.websiteUri ?? null,
+    priceLevel: priceLevelToNumber(d.priceLevel),
     photoUrl,
     hoursJson,
     googleRating: d.rating ?? null,
-    googleRatingCount: d.user_ratings_total ?? null,
+    googleRatingCount: d.userRatingCount ?? null,
     neighborhood,
   };
 }

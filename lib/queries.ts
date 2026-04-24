@@ -269,6 +269,21 @@ export async function listAllSpots() {
   return db.select().from(spots).orderBy(desc(spots.boysScore));
 }
 
+export async function listAllUsers() {
+  return db
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      email: users.email,
+      role: users.role,
+      avatarSwatch: users.avatarSwatch,
+      createdAt: users.createdAt,
+      ratingCount: sql<number>`(SELECT COUNT(*)::int FROM ${ratings} WHERE ${ratings.userId} = ${users.id})`,
+    })
+    .from(users)
+    .orderBy(desc(users.role), desc(users.createdAt));
+}
+
 export async function listMyBookmarks() {
   const user = await getCurrentUser();
   if (!user) return [];
