@@ -127,6 +127,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
   // Drag handle gesture
   const handleRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handle = handleRef.current;
@@ -189,11 +190,89 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
     handle.addEventListener("pointermove", onMove);
     handle.addEventListener("pointerup", onUp);
     handle.addEventListener("pointercancel", onUp);
+
+    // Also: overscroll-pull-down on the list — if list is at scrollTop=0
+    // and user pulls down, treat it as a sheet drag.
+    const list = listRef.current;
+    let listPointerId: number | null = null;
+    let listStartY = 0;
+    let listStartTop = 0;
+    let listDragging = false;
+
+    function listDown(e: PointerEvent) {
+      // Only consider touch / pen drags (mouse uses scroll wheel)
+      if (e.pointerType === "mouse") return;
+      if (list!.scrollTop > 0) return; // user is scrolling list, not sheet
+      listPointerId = e.pointerId;
+      listStartY = e.clientY;
+      listStartTop = sheet!.getBoundingClientRect().top;
+      listDragging = false;
+    }
+
+    function listMove(e: PointerEvent) {
+      if (listPointerId == null || listPointerId !== e.pointerId) return;
+      const dy = e.clientY - listStartY;
+      // Only intercept when pulling DOWN (positive dy), and list still at top
+      if (dy <= 4 || list!.scrollTop > 0) {
+        if (listDragging) {
+          // User started dragging then scrolled up — release control
+          listDragging = false;
+          sheet!.style.transition = "";
+          sheet!.style.transform = "";
+        }
+        return;
+      }
+      if (!listDragging) {
+        listDragging = true;
+        try {
+          list!.setPointerCapture(e.pointerId);
+        } catch {}
+        sheet!.style.transition = "none";
+      }
+      const parent = sheet!.parentElement!.getBoundingClientRect();
+      const offsetInParent = listStartTop + dy - parent.top;
+      const clamped = Math.max(0, Math.min(parent.height - 80, offsetInParent));
+      sheet!.style.transform = `translateY(${clamped}px)`;
+      e.preventDefault();
+    }
+
+    function listUp(e: PointerEvent) {
+      if (listPointerId == null || listPointerId !== e.pointerId) return;
+      try {
+        list!.releasePointerCapture(e.pointerId);
+      } catch {}
+      const wasDragging = listDragging;
+      listPointerId = null;
+      listDragging = false;
+      if (!wasDragging) return;
+      sheet!.style.transition = "";
+      const parent = sheet!.parentElement!.getBoundingClientRect();
+      const top = sheet!.getBoundingClientRect().top - parent.top;
+      const pct = top / parent.height;
+      sheet!.style.transform = "";
+      if (pct < 0.18) setSheetState("expanded");
+      else if (pct < 0.55) setSheetState("mid");
+      else setSheetState("peek");
+    }
+
+    if (list) {
+      list.addEventListener("pointerdown", listDown);
+      list.addEventListener("pointermove", listMove);
+      list.addEventListener("pointerup", listUp);
+      list.addEventListener("pointercancel", listUp);
+    }
+
     return () => {
       handle.removeEventListener("pointerdown", onDown);
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
       handle.removeEventListener("pointercancel", onUp);
+      if (list) {
+        list.removeEventListener("pointerdown", listDown);
+        list.removeEventListener("pointermove", listMove);
+        list.removeEventListener("pointerup", listUp);
+        list.removeEventListener("pointercancel", listUp);
+      }
     };
   }, []);
 
@@ -271,25 +350,27 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           zIndex: 400,
         }}
       >
+        {/* Whole top region (handle + title row) is the drag zone */}
         <div
           ref={handleRef}
-          className="py-3 flex justify-center cursor-grab select-none flex-shrink-0"
+          className="cursor-grab select-none flex-shrink-0"
           style={{ touchAction: "none" }}
         >
-          <div className="w-11 h-[5px] rounded-full bg-[var(--border-2)]" />
-        </div>
-
-        <div className="px-4 pb-3 flex justify-between items-end border-b border-[var(--border)] flex-shrink-0">
-          <div>
-            <h2 className="font-display text-lg font-bold tracking-tight">Top rated · USA</h2>
-            <div className="text-[11.5px] text-[var(--ink-3)] font-medium mt-0.5">
-              {spots.length} spots · Boys score, then Google rating
-            </div>
+          <div className="py-2.5 flex justify-center">
+            <div className="w-11 h-[5px] rounded-full bg-[var(--border-2)]" />
           </div>
-          <span className="text-xs font-semibold text-[var(--crab)]">Top ↓</span>
+          <div className="px-4 pb-3 flex justify-between items-end border-b border-[var(--border)]">
+            <div>
+              <h2 className="font-display text-lg font-bold tracking-tight">Top rated · USA</h2>
+              <div className="text-[11.5px] text-[var(--ink-3)] font-medium mt-0.5">
+                {spots.length} spots · Boys score, then Google rating
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-[var(--crab)]">Top ↓</span>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2.5 pb-4 pt-2">
+        <div ref={listRef} className="flex-1 overflow-y-auto px-2.5 pb-4 pt-2">
           {spots.map((s, i) => (
             <Link
               href={`/spot/${s.id}`}
