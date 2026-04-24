@@ -1,11 +1,21 @@
 import Link from "next/link";
-import { listSpots } from "@/lib/queries";
+import { listSpots, listCollections } from "@/lib/queries";
 import { ensureDemoUser } from "@/lib/auth";
 import ScoreCircle from "@/components/ScoreCircle";
+
+const GRADIENTS: Record<string, string> = {
+  g1: "linear-gradient(135deg, #e83d35, #8a2f1f)",
+  g2: "linear-gradient(135deg, #e4b248, #8a6420)",
+  g3: "linear-gradient(135deg, #3b5b7d, #1a2b3d)",
+  g4: "linear-gradient(135deg, #5a9660, #1f3a22)",
+  g5: "linear-gradient(135deg, #8a5aa8, #3d2354)",
+  g6: "linear-gradient(135deg, #1a1612, #403a31)",
+};
 
 export default async function ListsPage() {
   await ensureDemoUser();
   const spots = await listSpots();
+  const collections = await listCollections(true);
   const top5 = spots.slice(0, 5);
   const featured = top5[0];
 
@@ -93,51 +103,63 @@ export default async function ListsPage() {
           </Link>
         ))}
 
-        <div className="font-display font-extrabold text-xl tracking-tight m-1 mt-6 mb-3">
+        <div className="font-display font-extrabold text-xl tracking-tight m-1 mt-6 mb-3 flex justify-between items-baseline">
           Collections
+          <span className="text-xs font-semibold text-[var(--crab)]">
+            {collections.length} {collections.length === 1 ? "list" : "lists"}
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <Collection emoji="🔥" title="Broiled Only" count="34 spots" gradient="linear-gradient(135deg, #e83d35, #8a2f1f)" />
-          <Collection emoji="⭐" title="The 9.0+ Club" count="7 spots" gradient="linear-gradient(135deg, #e4b248, #8a6420)" />
-          <Collection emoji="🗽" title="East Coast Crawl" count="28 · 8 cities" gradient="linear-gradient(135deg, #3b5b7d, #1a2b3d)" />
-          <Collection emoji="💰" title="Under $20" count="22 spots" gradient="linear-gradient(135deg, #5a9660, #1f3a22)" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function Collection({
-  emoji,
-  title,
-  count,
-  gradient,
-}: {
-  emoji: string;
-  title: string;
-  count: string;
-  gradient: string;
-}) {
-  return (
-    <div className="h-32 rounded-2xl relative overflow-hidden" style={{ background: gradient }}>
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(180deg, transparent 40%, rgba(0,0,0,.4) 100%)",
-        }}
-      />
-      <div className="relative z-2 h-full p-3 flex flex-col justify-between text-white">
-        <div className="text-2xl" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.4))" }}>
-          {emoji}
-        </div>
-        <div>
-          <div className="font-display font-bold text-sm tracking-tight leading-[1.1]">
-            {title}
+        {collections.length === 0 ? (
+          <div className="text-center py-8 text-[13px] text-[var(--ink-3)]">
+            No collections yet.
           </div>
-          <div className="font-mono text-[9.5px] opacity-85 font-medium mt-0.5">
-            {count}
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5">
+            {collections.map((c) => {
+              const cities = c.firstCityList
+                ? c.firstCityList
+                    .split(",")
+                    .map((s) => s.trim().split(",")[0])
+                    .filter(Boolean)
+                    .slice(0, 3)
+                : [];
+              return (
+                <Link
+                  key={c.id}
+                  href={`/list/${c.id}`}
+                  className="h-32 rounded-2xl relative overflow-hidden block"
+                  style={{ background: GRADIENTS[c.gradient] ?? GRADIENTS.g1 }}
+                >
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, transparent 40%, rgba(0,0,0,.4) 100%)",
+                    }}
+                  />
+                  <div className="relative z-2 h-full p-3 flex flex-col justify-between text-white">
+                    <div
+                      className="text-2xl"
+                      style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.4))" }}
+                    >
+                      {c.emoji ?? "✦"}
+                    </div>
+                    <div>
+                      <div className="font-display font-bold text-sm tracking-tight leading-[1.1]">
+                        {c.title}
+                      </div>
+                      <div className="font-mono text-[9.5px] opacity-85 font-medium mt-0.5">
+                        {c.spotCount} {c.spotCount === 1 ? "spot" : "spots"}
+                        {cities.length > 0 ? ` · ${cities.join(", ")}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

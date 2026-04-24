@@ -29,6 +29,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Spots
         </Link>
         <Link
+          href="/admin/collections"
+          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
+        >
+          Lists
+        </Link>
+        <Link
           href="/admin/submissions"
           className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
         >

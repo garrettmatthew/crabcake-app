@@ -98,6 +98,37 @@ export const bookmarks = pgTable(
   })
 );
 
+export const collections = pgTable("collections", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  emoji: text("emoji"),
+  gradient: text("gradient").notNull().default("g1"),
+  position: integer("position").notNull().default(0),
+  isPublished: boolean("is_published").notNull().default(true),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const collectionSpots = pgTable(
+  "collection_spots",
+  {
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    spotId: text("spot_id")
+      .notNull()
+      .references(() => spots.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: { columns: [t.collectionId, t.spotId], name: "collection_spots_pkey" },
+    collectionIdx: index("collection_spots_collection_idx").on(t.collectionId),
+    spotIdx: index("collection_spots_spot_idx").on(t.spotId),
+  })
+);
+
 export const submissions = pgTable("submissions", {
   id: text("id").primaryKey(),
   userId: text("user_id")

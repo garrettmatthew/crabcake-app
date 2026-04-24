@@ -263,23 +263,43 @@ export default function RateForm({
         {/* Tags */}
         <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3.5 py-3 mb-2.5">
           <h5 className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--ink-3)] m-0 mb-2 font-semibold">
-            What'd you have?
+            Tags
           </h5>
-          <div className="flex flex-wrap gap-1.5">
-            {ALL_TAGS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => toggleTag(t)}
-                className={`text-[11.5px] px-2.5 py-1 rounded-full font-semibold border transition-all cursor-pointer ${
-                  tags.includes(t)
-                    ? "bg-[var(--crab)] text-white border-[var(--crab)]"
-                    : "bg-[var(--bg-2)] text-[var(--ink-2)] border-transparent"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            {ALL_TAGS.map((t) => {
+              const on = tags.includes(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => toggleTag(t)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    height: "30px",
+                    padding: "0 12px",
+                    borderRadius: "999px",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    border: on ? "1.5px solid var(--crab)" : "1.5px solid var(--border-2)",
+                    background: on ? "var(--crab)" : "var(--panel)",
+                    color: on ? "#fff" : "var(--ink-2)",
+                    cursor: "pointer",
+                    transition: "all .15s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {on && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                  {t}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -287,7 +307,7 @@ export default function RateForm({
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="One line. Broiled or fried? Lump or filler? Would you send your in-laws?"
+          placeholder="Write a quick review (optional)"
           className="w-full bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3.5 py-3 text-[13.5px] leading-[1.4] min-h-20 resize-none text-[var(--ink)] mb-2.5"
         />
 

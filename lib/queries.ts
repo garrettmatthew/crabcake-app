@@ -1,6 +1,14 @@
 import { db } from "./db";
-import { spots, ratings, bookmarks, submissions, users } from "./db/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import {
+  spots,
+  ratings,
+  bookmarks,
+  submissions,
+  users,
+  collections,
+  collectionSpots,
+} from "./db/schema";
+import { eq, desc, sql, and, asc } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
 
 export type SpotWithStats = {
@@ -267,6 +275,58 @@ export async function listPendingSubmissions() {
 
 export async function listAllSpots() {
   return db.select().from(spots).orderBy(desc(spots.boysScore));
+}
+
+export async function listCollections(onlyPublished = true) {
+  const q = db
+    .select({
+      id: collections.id,
+      title: collections.title,
+      description: collections.description,
+      emoji: collections.emoji,
+      gradient: collections.gradient,
+      position: collections.position,
+      isPublished: collections.isPublished,
+      createdAt: collections.createdAt,
+      spotCount: sql<number>`(SELECT COUNT(*)::int FROM ${collectionSpots} WHERE ${collectionSpots.collectionId} = ${collections.id})`,
+      firstCityList: sql<string | null>`(
+        SELECT string_agg(DISTINCT s.city, ',' ORDER BY s.city)
+        FROM ${collectionSpots} cs
+        JOIN ${spots} s ON s.id = cs.spot_id
+        WHERE cs.collection_id = ${collections.id}
+      )`,
+    })
+    .from(collections)
+    .orderBy(asc(collections.position), desc(collections.createdAt));
+  if (onlyPublished) return q.where(eq(collections.isPublished, true));
+  return q;
+}
+
+export async function getCollection(id: string) {
+  const rows = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.id, id))
+    .limit(1);
+  if (!rows[0]) return null;
+  return rows[0];
+}
+
+export async function listCollectionSpots(collectionId: string) {
+  return db
+    .select({
+      id: spots.id,
+      name: spots.name,
+      city: spots.city,
+      neighborhood: spots.neighborhood,
+      photoUrl: spots.photoUrl,
+      boysScore: spots.boysScore,
+      position: collectionSpots.position,
+    })
+    .from(collectionSpots)
+    .innerJoin(spots, eq(spots.id, collectionSpots.spotId))
+    .where(eq(collectionSpots.collectionId, collectionId))
+    .orderBy(asc(collectionSpots.position), desc(spots.boysScore));
 }
 
 export async function listAllUsers() {

@@ -77,10 +77,22 @@ export default async function MePage() {
           {user?.role === "admin" && (
             <Link
               href="/admin"
-              className="h-9 px-3 rounded-full bg-[var(--ink)] text-[var(--bg)] flex items-center gap-1.5 font-bold text-[12px]"
               aria-label="Admin"
+              style={{
+                height: "36px",
+                padding: "0 14px",
+                borderRadius: "999px",
+                background: "var(--ink)",
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                fontWeight: 700,
+                fontSize: "12.5px",
+                letterSpacing: "-.01em",
+              }}
             >
-              <span style={{ color: "var(--gold)" }}>★</span>
+              <span style={{ color: "var(--gold)", fontSize: "14px" }}>★</span>
               Admin
             </Link>
           )}

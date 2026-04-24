@@ -1,7 +1,15 @@
 "use server";
 
 import { db } from "./db";
-import { ratings, bookmarks, users, submissions, spots } from "./db/schema";
+import {
+  ratings,
+  bookmarks,
+  users,
+  submissions,
+  spots,
+  collections,
+  collectionSpots,
+} from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -171,6 +179,91 @@ export async function rejectSubmission(submissionId: string) {
     .set({ status: "rejected" })
     .where(eq(submissions.id, submissionId));
   revalidatePath("/admin/submissions");
+  return { ok: true };
+}
+
+export async function createCollection(input: {
+  title: string;
+  description?: string;
+  emoji?: string;
+  gradient?: string;
+}) {
+  const user = await requireAdmin();
+  const id = nanoid(10);
+  await db.insert(collections).values({
+    id,
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    emoji: input.emoji?.trim() || null,
+    gradient: input.gradient ?? "g1",
+    createdBy: user.id,
+  });
+  revalidatePath("/lists");
+  revalidatePath("/admin/collections");
+  return { ok: true, id };
+}
+
+export async function updateCollection(
+  id: string,
+  input: {
+    title?: string;
+    description?: string;
+    emoji?: string;
+    gradient?: string;
+    isPublished?: boolean;
+  }
+) {
+  await requireAdmin();
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) patch.title = input.title.trim();
+  if (input.description !== undefined)
+    patch.description = input.description?.trim() || null;
+  if (input.emoji !== undefined) patch.emoji = input.emoji?.trim() || null;
+  if (input.gradient !== undefined) patch.gradient = input.gradient;
+  if (input.isPublished !== undefined) patch.isPublished = input.isPublished;
+  await db.update(collections).set(patch).where(eq(collections.id, id));
+  revalidatePath("/lists");
+  revalidatePath(`/list/${id}`);
+  revalidatePath("/admin/collections");
+  revalidatePath(`/admin/collections/${id}`);
+  return { ok: true };
+}
+
+export async function deleteCollection(id: string) {
+  await requireAdmin();
+  await db.delete(collections).where(eq(collections.id, id));
+  revalidatePath("/lists");
+  revalidatePath("/admin/collections");
+  return { ok: true };
+}
+
+export async function addSpotToCollection(collectionId: string, spotId: string) {
+  await requireAdmin();
+  try {
+    await db.insert(collectionSpots).values({ collectionId, spotId });
+  } catch {
+    // Already exists — ignore (PK violation)
+  }
+  revalidatePath(`/list/${collectionId}`);
+  revalidatePath(`/admin/collections/${collectionId}`);
+  return { ok: true };
+}
+
+export async function removeSpotFromCollection(
+  collectionId: string,
+  spotId: string
+) {
+  await requireAdmin();
+  await db
+    .delete(collectionSpots)
+    .where(
+      and(
+        eq(collectionSpots.collectionId, collectionId),
+        eq(collectionSpots.spotId, spotId)
+      )
+    );
+  revalidatePath(`/list/${collectionId}`);
+  revalidatePath(`/admin/collections/${collectionId}`);
   return { ok: true };
 }
 
