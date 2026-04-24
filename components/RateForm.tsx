@@ -269,8 +269,9 @@ export default function RateForm({
             {ALL_TAGS.map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => toggleTag(t)}
-                className={`text-[11.5px] px-2.5 py-1 rounded-full font-semibold border transition-all ${
+                className={`text-[11.5px] px-2.5 py-1 rounded-full font-semibold border transition-all cursor-pointer ${
                   tags.includes(t)
                     ? "bg-[var(--crab)] text-white border-[var(--crab)]"
                     : "bg-[var(--bg-2)] text-[var(--ink-2)] border-transparent"

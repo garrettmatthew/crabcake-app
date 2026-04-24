@@ -74,6 +74,16 @@ export default async function MePage() {
           <div className="text-xs text-[var(--ink-3)] font-medium mt-0.5">Your cake log + settings.</div>
         </div>
         <div className="flex items-center gap-2">
+          {user?.role === "admin" && (
+            <Link
+              href="/admin"
+              className="h-9 px-3 rounded-full bg-[var(--ink)] text-[var(--bg)] flex items-center gap-1.5 font-bold text-[12px]"
+              aria-label="Admin"
+            >
+              <span style={{ color: "var(--gold)" }}>★</span>
+              Admin
+            </Link>
+          )}
           <Link
             href="/me/edit"
             className="w-9 h-9 rounded-full bg-[var(--panel)] border border-[var(--border)] flex items-center justify-center"

@@ -24,19 +24,19 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://crabcakes.app"),
-  title: "Crabcake — by the Baltimore Boys",
-  description: "Every crab cake in America, ranked.",
+  title: "Crabcake",
+  description: "Every crab cake in America, ranked. By the Baltimore Boys.",
   openGraph: {
-    title: "Crabcake — by the Baltimore Boys",
-    description: "Every crab cake in America, ranked.",
+    title: "Crabcake",
+    description: "Every crab cake in America, ranked. By the Baltimore Boys.",
     url: "https://crabcakes.app",
     siteName: "Crabcake",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Crabcake — by the Baltimore Boys",
-    description: "Every crab cake in America, ranked.",
+    title: "Crabcake",
+    description: "Every crab cake in America, ranked. By the Baltimore Boys.",
   },
   icons: {
     icon: "/favicon.svg",
