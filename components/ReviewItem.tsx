@@ -9,6 +9,7 @@ type Review = {
   note: string | null;
   tags: string[] | null;
   photoUrl?: string | null;
+  photoUrls?: string[] | null;
   createdAt: Date | string;
   userId: string;
   userName: string | null;
@@ -102,13 +103,39 @@ export default function ReviewItem({
       {review.note && (
         <div className="text-[13px] text-[var(--ink-2)] leading-[1.4]">{review.note}</div>
       )}
-      {review.photoUrl && (
-        <PhotoLightbox
-          src={review.photoUrl}
-          alt={`Photo from ${review.userName ?? "a reviewer"}`}
-          className="mt-2 rounded-xl h-36 w-full block border-0 p-0"
-        />
-      )}
+      {(() => {
+        // Prefer the new array column. Fall back to the legacy single-photo
+        // column for older reviews that haven't been migrated.
+        const photos =
+          review.photoUrls && review.photoUrls.length > 0
+            ? review.photoUrls
+            : review.photoUrl
+              ? [review.photoUrl]
+              : [];
+        if (photos.length === 0) return null;
+        if (photos.length === 1) {
+          return (
+            <PhotoLightbox
+              src={photos[0]}
+              alt={`Photo from ${review.userName ?? "a reviewer"}`}
+              className="mt-2 rounded-xl h-36 w-full block border-0 p-0"
+            />
+          );
+        }
+        return (
+          <div className="mt-2 flex gap-1.5 overflow-x-auto -mx-1 px-1 snap-x">
+            {photos.map((url, i) => (
+              <PhotoLightbox
+                key={url + i}
+                src={url}
+                alt={`Photo ${i + 1} from ${review.userName ?? "a reviewer"}`}
+                className="rounded-xl h-32 flex-shrink-0 block border-0 p-0 snap-start"
+                style={{ width: 144 }}
+              />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

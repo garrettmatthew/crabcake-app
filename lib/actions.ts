@@ -22,11 +22,21 @@ export async function submitRating(input: {
   score: number;
   note?: string;
   tags?: string[];
+  /** New multi-photo array. */
+  photoUrls?: string[];
+  /** Legacy single-photo input — still accepted from older callers. */
   photoUrl?: string;
   asBoys?: boolean;
 }) {
   const user = await requireUser();
   const score = Math.max(0, Math.min(10, input.score));
+
+  // Normalize photo input. New callers pass photoUrls (array). Legacy
+  // single-photo callers pass photoUrl. Internally we always write to
+  // photoUrls; photoUrl gets the first entry for backward-compat reads.
+  const incomingPhotos =
+    input.photoUrls ??
+    (input.photoUrl ? [input.photoUrl] : undefined);
 
   // Always record the personal rating so it shows up in "My reviews"
   const existing = await db.query.ratings.findFirst({
@@ -40,7 +50,13 @@ export async function submitRating(input: {
         score: score.toFixed(1),
         note: input.note ?? null,
         tags: input.tags ?? null,
-        photoUrl: input.photoUrl ?? existing.photoUrl,
+        photoUrl: incomingPhotos?.[0] ?? existing.photoUrl,
+        photoUrls:
+          incomingPhotos !== undefined
+            ? incomingPhotos.length > 0
+              ? incomingPhotos
+              : null
+            : existing.photoUrls,
         isBoysReview: markAsBoys,
         updatedAt: new Date(),
       })
@@ -53,7 +69,8 @@ export async function submitRating(input: {
       score: score.toFixed(1),
       note: input.note ?? null,
       tags: input.tags ?? null,
-      photoUrl: input.photoUrl ?? null,
+      photoUrl: incomingPhotos?.[0] ?? null,
+      photoUrls: incomingPhotos && incomingPhotos.length > 0 ? incomingPhotos : null,
       isBoysReview: markAsBoys,
     });
   }

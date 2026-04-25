@@ -44,6 +44,8 @@ export type SpotWithStats = {
   userRating: number | null;
   userNote: string | null;
   userTags: string[] | null;
+  userPhotoUrl: string | null;
+  userPhotoUrls: string[] | null;
   userRatingIsBoys: boolean;
 };
 
@@ -74,6 +76,8 @@ export async function listSpots(): Promise<SpotWithStats[]> {
         score: ratings.score,
         note: ratings.note,
         tags: ratings.tags,
+        photoUrl: ratings.photoUrl,
+        photoUrls: ratings.photoUrls,
         isBoysReview: ratings.isBoysReview,
       })
       .from(ratings),
@@ -116,6 +120,8 @@ export async function listSpots(): Promise<SpotWithStats[]> {
       userRating: myRating?.score ?? null,
       userNote: myRating?.note ?? null,
       userTags: myRating?.tags ?? null,
+      userPhotoUrl: myRating?.photoUrl ?? null,
+      userPhotoUrls: myRating?.photoUrls ?? null,
       userRatingIsBoys: Boolean(myRating?.isBoysReview),
       isSaved: savedSet.has(row.id),
     } as Record<string, unknown>);
@@ -143,6 +149,8 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
         score: ratings.score,
         note: ratings.note,
         tags: ratings.tags,
+        photoUrl: ratings.photoUrl,
+        photoUrls: ratings.photoUrls,
         isBoysReview: ratings.isBoysReview,
       })
       .from(ratings)
@@ -175,6 +183,8 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
     userRating: myRating?.score ?? null,
     userNote: myRating?.note ?? null,
     userTags: myRating?.tags ?? null,
+    userPhotoUrl: myRating?.photoUrl ?? null,
+    userPhotoUrls: myRating?.photoUrls ?? null,
     userRatingIsBoys: Boolean(myRating?.isBoysReview),
     isSaved: Boolean(isSavedRow),
   } as Record<string, unknown>);
@@ -205,6 +215,7 @@ export async function listCommunityReviews(
       note: ratings.note,
       tags: ratings.tags,
       photoUrl: ratings.photoUrl,
+      photoUrls: ratings.photoUrls,
       createdAt: ratings.createdAt,
       userId: ratings.userId,
       userName: sql<string | null>`(SELECT display_name FROM users WHERE users.id = ${ratings.userId})`,
@@ -232,6 +243,7 @@ export async function listRatingsByUser(userId: string) {
       tags: ratings.tags,
       isBoysReview: ratings.isBoysReview,
       photoUrl: ratings.photoUrl,
+      photoUrls: ratings.photoUrls,
       createdAt: ratings.createdAt,
       spotId: spots.id,
       spotName: spots.name,

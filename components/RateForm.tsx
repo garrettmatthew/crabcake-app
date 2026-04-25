@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { SpotWithStats } from "@/lib/queries";
 import { submitRating } from "@/lib/actions";
+import PhotoCropper from "./PhotoCropper";
+
+const MAX_PHOTOS = 4;
 
 export default function RateForm({
   spots,
@@ -28,8 +31,12 @@ export default function RateForm({
   const [scoreTouched, setScoreTouched] = useState(spot.userRating != null);
   const [note, setNote] = useState(spot.userNote ?? "");
   const [tags, setTags] = useState<string[]>(spot.userTags ?? []);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<string[]>(
+    spot.userPhotoUrls ?? (spot.userPhotoUrl ? [spot.userPhotoUrl] : [])
+  );
   const [uploading, setUploading] = useState(false);
+  // File the user just picked — kept until the cropper finishes.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [asBoys, setAsBoys] = useState(isAdmin); // Default ON for admins
   const [pending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
@@ -47,6 +54,9 @@ export default function RateForm({
       setScoreTouched(s.userRating != null);
       setNote(s.userNote ?? "");
       setTags(s.userTags ?? []);
+      setPhotoUrls(
+        s.userPhotoUrls ?? (s.userPhotoUrl ? [s.userPhotoUrl] : [])
+      );
     }
   }, [spotId, spots]);
 
@@ -92,18 +102,33 @@ export default function RateForm({
     setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   }
 
-  async function handleFile(file: File) {
+  // Step 1: user picks a file from the device. Don't upload yet —
+  // hand it to the cropper first so they can frame the photo.
+  function onFilePicked(file: File) {
+    if (photoUrls.length >= MAX_PHOTOS) return;
+    setPendingFile(file);
+  }
+
+  // Step 2: cropper confirms with a square JPEG blob. Upload it and
+  // append the resulting URL to the photoUrls array.
+  async function onCropConfirm(blob: Blob) {
+    setPendingFile(null);
     setUploading(true);
     try {
-      const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
-        method: "POST",
-        body: file,
-      });
+      const filename = `cropped-${Date.now()}.jpg`;
+      const res = await fetch(
+        `/api/upload?filename=${encodeURIComponent(filename)}`,
+        { method: "POST", body: blob }
+      );
       const data = await res.json();
-      if (data.url) setPhotoUrl(data.url);
+      if (data.url) setPhotoUrls((cur) => [...cur, data.url]);
     } finally {
       setUploading(false);
     }
+  }
+
+  function removePhoto(index: number) {
+    setPhotoUrls((cur) => cur.filter((_, i) => i !== index));
   }
 
   function onSubmit() {
@@ -113,7 +138,7 @@ export default function RateForm({
         score,
         note: note || undefined,
         tags,
-        photoUrl: photoUrl || undefined,
+        photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
         asBoys: isAdmin && asBoys,
       });
       setPostedAsBoys(Boolean(result?.asBoys));
@@ -408,55 +433,72 @@ export default function RateForm({
           className="w-full bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3.5 py-3 text-[13.5px] leading-[1.4] min-h-20 resize-none text-[var(--ink)] mb-2.5"
         />
 
-        {/* Photo upload */}
-        <label
-          htmlFor="photo-upload"
-          className="flex items-center gap-2.5 bg-[var(--panel)] border border-dashed border-[var(--border-2)] rounded-2xl px-3.5 py-3 mb-2.5 cursor-pointer"
-        >
-          {photoUrl ? (
-            <>
+        {/* Photo strip — up to MAX_PHOTOS thumbnails plus an Add button */}
+        <div className="bg-[var(--panel)] border border-dashed border-[var(--border-2)] rounded-2xl px-3 py-3 mb-2.5">
+          <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1">
+            {photoUrls.map((url, i) => (
               <div
-                className="w-12 h-12 rounded-xl bg-cover bg-center flex-shrink-0"
-                style={{ backgroundImage: `url(${photoUrl})` }}
-              />
-              <div className="flex-1">
-                <div className="text-[13px] font-bold">Photo attached</div>
-                <div className="text-[10.5px] text-[var(--ink-3)]">Tap to replace</div>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setPhotoUrl(null);
-                }}
-                className="w-7 h-7 rounded-full bg-[var(--bg-2)] flex items-center justify-center text-[var(--ink-3)]"
+                key={url + i}
+                className="relative flex-shrink-0"
+                style={{ width: 72, height: 72 }}
               >
-                ×
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="w-[34px] h-[34px] rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--ink-2)]">
+                <div
+                  className="w-full h-full rounded-xl bg-cover bg-center"
+                  style={{ backgroundImage: `url(${url})` }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  aria-label="Remove photo"
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full text-white text-[14px] flex items-center justify-center"
+                  style={{
+                    background: "var(--ink)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,.25)",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {photoUrls.length < MAX_PHOTOS && (
+              <label
+                htmlFor="photo-upload"
+                className="flex-shrink-0 flex flex-col items-center justify-center gap-1 cursor-pointer rounded-xl text-[var(--ink-2)]"
+                style={{
+                  width: 72,
+                  height: 72,
+                  background: "var(--bg-2)",
+                  border: "1px dashed var(--border-2)",
+                }}
+              >
                 {uploading ? (
                   <div className="w-4 h-4 border-2 border-[var(--border-2)] border-t-[var(--crab)] rounded-full animate-spin" />
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <polyline points="21 15 16 10 5 21" />
-                  </svg>
+                  <>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    <span className="text-[9.5px] font-mono uppercase tracking-[.06em] font-semibold text-[var(--ink-3)]">
+                      Photo
+                    </span>
+                  </>
                 )}
-              </div>
-              <div className="flex-1">
-                <div className="text-[13px] font-bold">
-                  {uploading ? "Uploading…" : "Add a photo"}
-                </div>
-                <div className="text-[10.5px] text-[var(--ink-3)]">
-                  Optional · JPG, PNG, HEIC
-                </div>
-              </div>
-            </>
-          )}
+              </label>
+            )}
+          </div>
+          <div className="text-[10.5px] text-[var(--ink-3)] mt-2 px-0.5">
+            {photoUrls.length === 0
+              ? `Optional · up to ${MAX_PHOTOS} photos · JPG / PNG / HEIC`
+              : `${photoUrls.length} / ${MAX_PHOTOS} photos`}
+          </div>
           <input
             id="photo-upload"
             ref={fileRef}
@@ -465,10 +507,20 @@ export default function RateForm({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleFile(f);
+              if (f) onFilePicked(f);
+              // Reset so picking the same file twice still fires onChange.
+              e.currentTarget.value = "";
             }}
           />
-        </label>
+        </div>
+
+        {pendingFile && (
+          <PhotoCropper
+            file={pendingFile}
+            onCancel={() => setPendingFile(null)}
+            onConfirm={onCropConfirm}
+          />
+        )}
 
         <button
           onClick={onSubmit}
