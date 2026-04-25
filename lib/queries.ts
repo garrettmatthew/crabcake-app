@@ -9,6 +9,7 @@ import {
   collectionSpots,
   tags,
   reactions,
+  spotScoreHistory,
 } from "./db/schema";
 import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
@@ -283,6 +284,27 @@ export async function listMyRatings() {
   const user = await getCurrentUser();
   if (!user) return [];
   return listRatingsByUser(user.id);
+}
+
+/** Boys score changes for a spot, newest first. */
+export async function listSpotScoreHistory(spotId: string) {
+  return db
+    .select({
+      id: spotScoreHistory.id,
+      previousScore: spotScoreHistory.previousScore,
+      newScore: spotScoreHistory.newScore,
+      previousQuote: spotScoreHistory.previousQuote,
+      newQuote: spotScoreHistory.newQuote,
+      kind: spotScoreHistory.kind,
+      createdAt: spotScoreHistory.createdAt,
+      changedByName: users.displayName,
+      changedById: spotScoreHistory.changedBy,
+    })
+    .from(spotScoreHistory)
+    .leftJoin(users, eq(users.id, spotScoreHistory.changedBy))
+    .where(eq(spotScoreHistory.spotId, spotId))
+    .orderBy(desc(spotScoreHistory.createdAt))
+    .limit(20);
 }
 
 /** Single rating with spot + reviewer context. Used by /r/[id] share page. */

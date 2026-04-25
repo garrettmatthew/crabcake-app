@@ -143,6 +143,28 @@ export const tags = pgTable("tags", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const spotScoreHistory = pgTable(
+  "spot_score_history",
+  {
+    id: text("id").primaryKey(),
+    spotId: text("spot_id")
+      .notNull()
+      .references(() => spots.id, { onDelete: "cascade" }),
+    changedBy: text("changed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    previousScore: numeric("previous_score", { precision: 3, scale: 1 }),
+    newScore: numeric("new_score", { precision: 3, scale: 1 }),
+    previousQuote: text("previous_quote"),
+    newQuote: text("new_quote"),
+    kind: text("kind").notNull().default("updated"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    spotIdx: index("spot_score_history_spot_idx").on(t.spotId, t.createdAt),
+  })
+);
+
 export const reactions = pgTable(
   "reactions",
   {

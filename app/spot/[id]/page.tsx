@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getSpot, listCommunityReviews } from "@/lib/queries";
+import {
+  getSpot,
+  listCommunityReviews,
+  listSpotScoreHistory,
+} from "@/lib/queries";
 import { ensureDemoUser } from "@/lib/auth";
 import SpotScoreRow from "@/components/SpotScoreRow";
 import SpotActions from "@/components/SpotActions";
@@ -53,6 +57,7 @@ export default async function SpotPage({
   if (!spot) notFound();
   const reviews = await listCommunityReviews(id, 12);
   const me = await getCurrentUser();
+  const history = await listSpotScoreHistory(id);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -318,6 +323,67 @@ export default async function SpotPage({
               ))
             )}
           </div>
+
+          {/* Boys score history — collapsed by default */}
+          {history.length > 0 && (
+            <details className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-4 py-3 mb-4">
+              <summary className="font-display font-bold text-[14px] tracking-tight cursor-pointer flex justify-between items-center list-none">
+                Boys score history
+                <span className="font-mono text-[10px] tracking-[.06em] text-[var(--ink-3)]">
+                  {history.length} {history.length === 1 ? "change" : "changes"}
+                </span>
+              </summary>
+              <div className="mt-3 space-y-2.5">
+                {history.map((h) => {
+                  const prev =
+                    h.previousScore == null ? null : parseFloat(h.previousScore);
+                  const next =
+                    h.newScore == null ? null : parseFloat(h.newScore);
+                  const dateStr = new Date(h.createdAt).toLocaleDateString(
+                    "en-US",
+                    { month: "short", day: "numeric", year: "numeric" }
+                  );
+                  return (
+                    <div key={h.id} className="text-[12.5px]">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                          className="font-mono text-[9.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded"
+                          style={{
+                            background:
+                              h.kind === "removed"
+                                ? "var(--ink-3)"
+                                : h.kind === "added"
+                                  ? "var(--green, #5a9660)"
+                                  : "var(--gold)",
+                            color:
+                              h.kind === "removed" || h.kind === "added"
+                                ? "#fff"
+                                : "var(--ink)",
+                          }}
+                        >
+                          {h.kind}
+                        </span>
+                        <span className="font-bold">
+                          {prev != null ? prev.toFixed(1) : "—"}
+                          {" → "}
+                          {next != null ? next.toFixed(1) : "—"}
+                        </span>
+                        <span className="text-[var(--ink-3)] font-mono text-[10.5px]">
+                          {dateStr}
+                          {h.changedByName ? ` · ${h.changedByName}` : ""}
+                        </span>
+                      </div>
+                      {h.newQuote && h.newQuote !== h.previousQuote && (
+                        <div className="text-[12.5px] italic text-[var(--ink-2)] pl-2 leading-[1.4]">
+                          "{h.newQuote}"
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
 
           {/* Report link — discreet, signed-in users only */}
           {me && (

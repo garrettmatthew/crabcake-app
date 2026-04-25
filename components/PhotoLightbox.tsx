@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+const VIDEO_RX = /\.(mp4|mov|webm|m4v)(\?|$)/i;
+
 /**
- * Click-to-expand image. Renders a small thumbnail; on click, opens a
- * full-screen overlay with the image centered. Tap anywhere or press
- * Escape to dismiss. Used on review cards.
+ * Click-to-expand media. Detects video URLs and renders the right
+ * element (img / video). Thumbnail uses an HTML video tag so the
+ * first frame previews; tap opens the full-screen player. Same lightbox
+ * UX as photos.
  */
 export default function PhotoLightbox({
   src,
@@ -19,6 +22,7 @@ export default function PhotoLightbox({
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  const isVideo = VIDEO_RX.test(src);
 
   useEffect(() => {
     if (!open) return;
@@ -40,14 +44,56 @@ export default function PhotoLightbox({
         onClick={() => setOpen(true)}
         className={className}
         style={{
-          backgroundImage: `url(${src})`,
+          background: isVideo ? "#000" : undefined,
+          backgroundImage: isVideo ? undefined : `url(${src})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           cursor: "zoom-in",
+          position: "relative",
+          overflow: "hidden",
           ...style,
         }}
-        aria-label={alt || "View photo"}
-      />
+        aria-label={alt || (isVideo ? "Play video" : "View photo")}
+      >
+        {isVideo && (
+          <>
+            <video
+              src={src}
+              muted
+              playsInline
+              preload="metadata"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                pointerEvents: "none",
+              }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,.6)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+            </span>
+          </>
+        )}
+      </button>
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -74,19 +120,36 @@ export default function PhotoLightbox({
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          {/* Image */}
-          <img
-            src={src}
-            alt={alt}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "94vw",
-              maxHeight: "92vh",
-              objectFit: "contain",
-              borderRadius: 12,
-              boxShadow: "0 30px 80px rgba(0,0,0,.5)",
-            }}
-          />
+          {/* Media */}
+          {isVideo ? (
+            <video
+              src={src}
+              controls
+              autoPlay
+              playsInline
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: "94vw",
+                maxHeight: "92vh",
+                borderRadius: 12,
+                boxShadow: "0 30px 80px rgba(0,0,0,.5)",
+                background: "#000",
+              }}
+            />
+          ) : (
+            <img
+              src={src}
+              alt={alt}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: "94vw",
+                maxHeight: "92vh",
+                objectFit: "contain",
+                borderRadius: 12,
+                boxShadow: "0 30px 80px rgba(0,0,0,.5)",
+              }}
+            />
+          )}
         </div>
       )}
     </>

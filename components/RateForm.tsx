@@ -102,11 +102,29 @@ export default function RateForm({
     setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   }
 
-  // Step 1: user picks a file from the device. Don't upload yet —
-  // hand it to the cropper first so they can frame the photo.
+  // Step 1: user picks a file from the device. Photos go through the
+  // cropper; videos upload directly (no crop UI).
   function onFilePicked(file: File) {
     if (photoUrls.length >= MAX_PHOTOS) return;
+    if (file.type.startsWith("video/")) {
+      void uploadDirect(file);
+      return;
+    }
     setPendingFile(file);
+  }
+
+  async function uploadDirect(file: File) {
+    setUploading(true);
+    try {
+      const res = await fetch(
+        `/api/upload?filename=${encodeURIComponent(file.name)}`,
+        { method: "POST", body: file }
+      );
+      const data = await res.json();
+      if (data.url) setPhotoUrls((cur) => [...cur, data.url]);
+    } finally {
+      setUploading(false);
+    }
   }
 
   // Step 2: cropper confirms with a square JPEG blob. Upload it and
@@ -436,30 +454,76 @@ export default function RateForm({
         {/* Photo strip — up to MAX_PHOTOS thumbnails plus an Add button */}
         <div className="bg-[var(--panel)] border border-dashed border-[var(--border-2)] rounded-2xl px-3 py-3 mb-2.5">
           <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1">
-            {photoUrls.map((url, i) => (
-              <div
-                key={url + i}
-                className="relative flex-shrink-0"
-                style={{ width: 72, height: 72 }}
-              >
+            {photoUrls.map((url, i) => {
+              const isVideo = /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url);
+              return (
                 <div
-                  className="w-full h-full rounded-xl bg-cover bg-center"
-                  style={{ backgroundImage: `url(${url})` }}
-                />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(i)}
-                  aria-label="Remove photo"
-                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full text-white text-[14px] flex items-center justify-center"
-                  style={{
-                    background: "var(--ink)",
-                    boxShadow: "0 2px 6px rgba(0,0,0,.25)",
-                  }}
+                  key={url + i}
+                  className="relative flex-shrink-0 overflow-hidden rounded-xl"
+                  style={{ width: 72, height: 72, background: "#000" }}
                 >
-                  ×
-                </button>
-              </div>
-            ))}
+                  {isVideo ? (
+                    <>
+                      <video
+                        src={url}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        <div
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            background: "rgba(0,0,0,0.55)",
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <svg
+                            width="9"
+                            height="9"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <polygon points="6 4 20 12 6 20 6 4" />
+                          </svg>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      className="w-full h-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${url})` }}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    aria-label="Remove media"
+                    className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full text-white text-[14px] flex items-center justify-center"
+                    style={{
+                      background: "var(--ink)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,.25)",
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
             {photoUrls.length < MAX_PHOTOS && (
               <label
                 htmlFor="photo-upload"
@@ -496,14 +560,14 @@ export default function RateForm({
           </div>
           <div className="text-[10.5px] text-[var(--ink-3)] mt-2 px-0.5">
             {photoUrls.length === 0
-              ? `Optional · up to ${MAX_PHOTOS} photos · JPG / PNG / HEIC`
-              : `${photoUrls.length} / ${MAX_PHOTOS} photos`}
+              ? `Optional · up to ${MAX_PHOTOS} photos or videos`
+              : `${photoUrls.length} / ${MAX_PHOTOS}`}
           </div>
           <input
             id="photo-upload"
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];

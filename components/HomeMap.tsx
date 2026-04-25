@@ -168,6 +168,32 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         subdomains: "abcd",
       }).addTo(map);
 
+      // Cluster overlapping pins. Once spots get dense in a city, the map
+      // shows a single bubble with the count instead of a fan of pins. Click
+      // expands to the children.
+      await import("leaflet.markercluster");
+      const Lany = L as unknown as {
+        markerClusterGroup: (opts: object) => import("leaflet").Layer & {
+          addLayer: (m: import("leaflet").Layer) => void;
+        };
+      };
+      const cluster = Lany.markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 36,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 14,
+        iconCreateFunction: (c: { getChildCount: () => number }) => {
+          const count = c.getChildCount();
+          return L.divIcon({
+            className: "marker-container",
+            html: `<div class="marker-cluster">${count}</div>`,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+          });
+        },
+      });
+      map.addLayer(cluster);
+
       // Add markers — Boys score if available, else Google rating with star pip
       for (const s of spots) {
         const savedBadge = s.isSaved
@@ -194,11 +220,12 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });
-        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name }).addTo(map);
+        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name });
         m.on("click", () => {
           setSelectedId(s.id);
           router.push(`/spot/${s.id}`);
         });
+        cluster.addLayer(m);
       }
     })();
     return () => {

@@ -12,6 +12,7 @@ import {
   tags,
   reports,
   reactions,
+  spotScoreHistory,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq, ne } from "drizzle-orm";
@@ -113,6 +114,11 @@ export async function submitRating(input: {
         ? "Heavy"
         : null;
 
+    // Capture the previous Boys snapshot so we can record a history row.
+    const prevSpot = await db.query.spots.findFirst({
+      where: eq(spots.id, input.spotId),
+    });
+
     await db
       .update(spots)
       .set({
@@ -127,6 +133,23 @@ export async function submitRating(input: {
         photoUrl: input.photoUrl ?? undefined,
       })
       .where(eq(spots.id, input.spotId));
+
+    // Append history row if anything actually changed.
+    const prevScore = prevSpot?.boysScore ?? null;
+    const prevQuote = prevSpot?.boysReviewQuote ?? null;
+    const newScoreStr = score.toFixed(1);
+    if (prevScore !== newScoreStr || prevQuote !== (input.note ?? null)) {
+      await db.insert(spotScoreHistory).values({
+        id: nanoid(),
+        spotId: input.spotId,
+        changedBy: user.id,
+        previousScore: prevScore,
+        newScore: newScoreStr,
+        previousQuote: prevQuote,
+        newQuote: input.note ?? null,
+        kind: prevScore == null ? "added" : "updated",
+      });
+    }
     revalidatePath("/lists");
   }
 
@@ -177,7 +200,10 @@ export async function deleteRating(spotId: string) {
  * clears the spot's boys_* fields.
  */
 export async function deleteBoysReviewForSpot(spotId: string) {
-  await requireAdmin();
+  const user = await requireAdmin();
+  const prevSpot = await db.query.spots.findFirst({
+    where: eq(spots.id, spotId),
+  });
   const existing = await db.query.ratings.findFirst({
     where: and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, true)),
   });
@@ -193,6 +219,19 @@ export async function deleteBoysReviewForSpot(spotId: string) {
       boysReviewDate: null,
     })
     .where(eq(spots.id, spotId));
+
+  if (prevSpot?.boysScore != null) {
+    await db.insert(spotScoreHistory).values({
+      id: nanoid(),
+      spotId,
+      changedBy: user.id,
+      previousScore: prevSpot.boysScore,
+      newScore: null,
+      previousQuote: prevSpot.boysReviewQuote ?? null,
+      newQuote: null,
+      kind: "removed",
+    });
+  }
 
   revalidatePath(`/spot/${spotId}`);
   revalidatePath("/lists");
