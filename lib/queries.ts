@@ -38,6 +38,7 @@ export type SpotWithStats = {
   hoursJson: string | null;
   googleRating: number | null;
   googleRatingCount: number | null;
+  venueType: string | null;
   communityScore: number | null;
   communityCount: number;
   isSaved: boolean;
