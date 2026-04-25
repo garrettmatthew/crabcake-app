@@ -30,10 +30,7 @@ export default function RateForm({
   const [tags, setTags] = useState<string[]>(spot.userTags ?? []);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  // Toggle starts OFF — admins have to explicitly opt in to post as the
-  // official Baltimore Boys review for a spot. Default ON caused every
-  // admin review to silently overwrite the spot's Boys score.
-  const [asBoys, setAsBoys] = useState(false);
+  const [asBoys, setAsBoys] = useState(isAdmin); // Default ON for admins
   const [pending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
   // Capture what *actually* got persisted so the success screen reflects
