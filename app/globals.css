@@ -142,7 +142,9 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   position: relative;
 }
-.marker-cluster {
+/* Our custom cluster bubble (rendered via iconCreateFunction). Branded so
+   it visually pairs with the marker-pin colors. */
+.marker-cluster-pin {
   width: 42px; height: 42px;
   border-radius: 50%;
   background: var(--ink);
@@ -155,19 +157,17 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -.02em;
   box-shadow: 0 4px 10px rgba(0,0,0,.35);
 }
-/* leaflet.markercluster default cluster wrapper — neutralize so our
-   custom .marker-cluster styles take over */
-.leaflet-cluster-anim .marker-container,
-.marker-cluster-small,
-.marker-cluster-medium,
-.marker-cluster-large {
+/* Neutralize the plugin's default cluster styles so our marker-cluster-pin
+   is what shows. The plugin assigns small/medium/large size classes by
+   child count and tries to apply its own backgrounds. */
+.marker-cluster {
   background: transparent !important;
-  border: none !important;
 }
-.marker-cluster-small div,
-.marker-cluster-medium div,
-.marker-cluster-large div {
+.marker-cluster div {
   background: transparent !important;
+}
+.marker-cluster span {
+  display: none !important;
 }
 
 .marker-pin.elite { background: var(--gold); color: var(--ink); }

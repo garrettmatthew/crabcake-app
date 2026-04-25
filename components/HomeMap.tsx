@@ -1,5 +1,11 @@
 "use client";
 
+// Marker cluster plugin CSS — must be present at module-load time, not
+// inside the lazy effect. Without these, the cluster icons can't size or
+// animate correctly and the plugin can fail mid-init.
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -168,6 +174,42 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         subdomains: "abcd",
       }).addTo(map);
 
+      // Try to set up a marker cluster group. If anything fails (the plugin
+      // didn't attach, CSS missing, etc.) fall back to adding markers
+      // directly to the map so pins always render.
+      type ClusterLayer = import("leaflet").Layer & {
+        addLayer: (m: import("leaflet").Layer) => void;
+      };
+      let cluster: ClusterLayer | null = null;
+      try {
+        await import("leaflet.markercluster");
+        const Lany = L as unknown as {
+          markerClusterGroup?: (opts: object) => ClusterLayer;
+        };
+        if (typeof Lany.markerClusterGroup === "function") {
+          cluster = Lany.markerClusterGroup({
+            showCoverageOnHover: false,
+            maxClusterRadius: 36,
+            spiderfyOnMaxZoom: true,
+            disableClusteringAtZoom: 14,
+            iconCreateFunction: (c: { getChildCount: () => number }) => {
+              const count = c.getChildCount();
+              return L.divIcon({
+                className: "marker-container",
+                html: `<div class="marker-cluster-pin">${count}</div>`,
+                iconSize: [42, 42],
+                iconAnchor: [21, 21],
+              });
+            },
+          });
+          map.addLayer(cluster);
+        }
+      } catch (e) {
+        // Plugin failed — log and continue with direct markers.
+        console.warn("Marker cluster init failed, using direct markers", e);
+        cluster = null;
+      }
+
       // Add markers — Boys score if available, else Google rating with star pip
       for (const s of spots) {
         const savedBadge = s.isSaved
@@ -194,11 +236,16 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });
-        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name }).addTo(map);
+        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name });
         m.on("click", () => {
           setSelectedId(s.id);
           router.push(`/spot/${s.id}`);
         });
+        if (cluster) {
+          cluster.addLayer(m);
+        } else {
+          m.addTo(map);
+        }
       }
     })();
     return () => {
