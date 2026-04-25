@@ -1,4 +1,5 @@
 import { scoreClass } from "./ScoreCircle";
+import PhotoLightbox from "./PhotoLightbox";
 
 type Review = {
   id: string;
