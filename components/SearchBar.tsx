@@ -147,13 +147,11 @@ export default function SearchBar() {
                 <button
                   key={p.placeId}
                   onClick={() => {
-                    router.push(
-                      `/submit?name=${encodeURIComponent(p.name)}&city=${encodeURIComponent(
-                        p.city
-                      )}&lat=${p.latitude}&lng=${p.longitude}&addr=${encodeURIComponent(
-                        p.displayName
-                      )}`
-                    );
+                    // Pre-fill the Google Places search on /submit with whatever
+                    // the user typed — they pick the real place from there and
+                    // it goes straight on the map.
+                    const query = `${p.name} ${p.city}`.trim();
+                    router.push(`/submit?q=${encodeURIComponent(query)}`);
                   }}
                   onMouseDown={(e) => e.preventDefault()}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--panel-2)] text-left"
@@ -176,7 +174,7 @@ export default function SearchBar() {
                       {p.name}
                     </div>
                     <div className="text-[11px] text-[var(--ink-3)] font-medium truncate">
-                      {p.city} · Submit for review
+                      {p.city} · Add to the map
                     </div>
                   </div>
                 </button>
