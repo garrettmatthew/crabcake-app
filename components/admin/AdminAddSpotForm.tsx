@@ -86,7 +86,7 @@ export default function AdminAddSpotForm({ hasKey }: { hasKey: boolean }) {
       )}
 
       <p className="text-[13px] text-[var(--ink-2)] mb-3 leading-[1.5]">
-        Search any restaurant. The Boy who adds it is attributed. Google data populates automatically.
+        Search any spot — restaurant, country club, oyster bar, hotel. The Boy who adds it is attributed. Google data populates automatically.
       </p>
 
       <div className="relative mb-3">

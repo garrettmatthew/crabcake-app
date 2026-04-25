@@ -60,7 +60,7 @@ export default function SubmitForm({
           Know a crab cake worth ranking? Submit it and a Baltimore Boy will verify and score it.
         </p>
 
-        <Field label="Restaurant name">
+        <Field label="Spot name">
           <input
             className="w-full h-11 bg-[var(--panel)] border border-[var(--border)] rounded-xl px-3.5 text-[14.5px] font-medium text-[var(--ink)]"
             value={name}
