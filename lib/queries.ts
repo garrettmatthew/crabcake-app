@@ -235,6 +235,36 @@ export async function listMyRatings() {
   return listRatingsByUser(user.id);
 }
 
+/** Single rating with spot + reviewer context. Used by /r/[id] share page. */
+export async function getRatingById(ratingId: string) {
+  const rows = await db
+    .select({
+      id: ratings.id,
+      score: ratings.score,
+      note: ratings.note,
+      tags: ratings.tags,
+      isBoysReview: ratings.isBoysReview,
+      photoUrl: ratings.photoUrl,
+      photoUrls: ratings.photoUrls,
+      createdAt: ratings.createdAt,
+      userId: ratings.userId,
+      userName: users.displayName,
+      avatarSwatch: users.avatarSwatch,
+      avatarUrl: users.avatarUrl,
+      spotId: spots.id,
+      spotName: spots.name,
+      spotCity: spots.city,
+      spotPhoto: spots.photoUrl,
+      spotPublished: spots.isPublished,
+    })
+    .from(ratings)
+    .leftJoin(users, eq(users.id, ratings.userId))
+    .leftJoin(spots, eq(spots.id, ratings.spotId))
+    .where(eq(ratings.id, ratingId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** All published ratings authored by a user, joined with spot metadata. */
 export async function listRatingsByUser(userId: string) {
   return db

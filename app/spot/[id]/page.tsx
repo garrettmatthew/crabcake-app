@@ -15,6 +15,33 @@ import { getCurrentUser } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { getSpot } = await import("@/lib/queries");
+  const spot = await getSpot(id);
+  if (!spot) return {};
+  const venue = spot.venueType ? ` · ${spot.venueType}` : "";
+  const score =
+    spot.boysScore != null
+      ? `Boys ${spot.boysScore.toFixed(1)}`
+      : spot.communityScore != null
+        ? `Community ${spot.communityScore.toFixed(1)}`
+        : "On the map";
+  return {
+    title: `${spot.name} — Crabcakes`,
+    description: `${spot.name} in ${spot.city}${venue}. ${score} on Crabcakes.`,
+    openGraph: {
+      title: `${spot.name}`,
+      description: `${spot.city}${venue} · ${score}`,
+      url: `https://crabcakes.app/spot/${spot.id}`,
+    },
+  };
+}
+
 export default async function SpotPage({
   params,
 }: {

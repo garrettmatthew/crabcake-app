@@ -2,6 +2,7 @@ import Link from "next/link";
 import { scoreClass } from "./ScoreCircle";
 import PhotoLightbox from "./PhotoLightbox";
 import OwnReviewControls from "./OwnReviewControls";
+import ShareButton from "./ShareButton";
 
 type Review = {
   id: string;
@@ -87,6 +88,12 @@ export default function ReviewItem({
           </div>
         </Link>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <ShareButton
+            url={`/r/${review.id}`}
+            title={`${review.userName ?? "A Baltimore local"}'s take`}
+            text={review.note ?? undefined}
+            ariaLabel="Share this review"
+          />
           {isOwn && spotId && (
             <OwnReviewControls spotId={spotId} />
           )}

@@ -5,6 +5,7 @@ import { hasClerk } from "@/lib/auth";
 import { ClerkProvider } from "@clerk/nextjs";
 import TabBar from "@/components/TabBar";
 import Toast from "@/components/Toast";
+import InstallPrompt from "@/components/InstallPrompt";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -64,6 +65,7 @@ function Body({ children }: { children: React.ReactNode }) {
       <div className="device">
         <div className="screen-root">{children}</div>
         <TabBar />
+        <InstallPrompt />
         <Toast />
       </div>
     </div>
