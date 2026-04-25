@@ -35,13 +35,18 @@ export async function getCurrentUser() {
       cu?.username ??
       (email ? email.split("@")[0] : null);
 
+    // Clerk's profile photo (set by Google sign-in or uploaded in Clerk).
+    // Used as a default avatar; the user can override on /me/edit.
+    const clerkImageUrl = cu?.imageUrl ?? null;
+
     const row = await db.query.users.findFirst({ where: eq(users.clerkId, userId) });
     if (row) {
       const patch: Partial<typeof users.$inferInsert> = {};
       if (shouldBeAdmin && row.role !== "admin") patch.role = "admin";
-      // Backfill display name / email if missing
+      // Backfill display name / email / avatar if missing
       if (!row.displayName && clerkDisplayName) patch.displayName = clerkDisplayName;
       if (!row.email && email) patch.email = email;
+      if (!row.avatarUrl && clerkImageUrl) patch.avatarUrl = clerkImageUrl;
       if (Object.keys(patch).length > 0) {
         const [updated] = await db
           .update(users)
@@ -61,6 +66,7 @@ export async function getCurrentUser() {
         email,
         role: shouldBeAdmin ? "admin" : "user",
         displayName: clerkDisplayName,
+        avatarUrl: clerkImageUrl,
       })
       .returning();
     return created;

@@ -14,6 +14,7 @@ type Review = {
   userId: string;
   userName: string | null;
   avatarSwatch: string | null;
+  avatarUrl?: string | null;
 };
 
 export default function ReviewItem({
@@ -53,10 +54,17 @@ export default function ReviewItem({
           className="flex items-center gap-2 min-w-0 group"
         >
           <div
-            className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-            style={{ background: gradient }}
+            className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
+            style={{
+              background: review.avatarUrl ? "transparent" : gradient,
+              backgroundImage: review.avatarUrl
+                ? `url(${review.avatarUrl})`
+                : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
           >
-            {initials}
+            {!review.avatarUrl && initials}
           </div>
           <div className="min-w-0">
             <div className="text-[12.5px] font-semibold flex items-center gap-1.5">

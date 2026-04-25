@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   email: text("email"),
   displayName: text("display_name"),
   avatarSwatch: text("avatar_swatch").default("g1"),
+  avatarUrl: text("avatar_url"),
   homeCity: text("home_city").default("Baltimore, MD"),
   bio: text("bio"),
   role: text("role").notNull().default("user"),

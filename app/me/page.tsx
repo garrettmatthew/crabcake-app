@@ -118,9 +118,17 @@ export default async function MePage() {
           <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/10" />
           <div className="relative flex items-center gap-3 z-2">
             <div
-              className="w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center font-display font-extrabold text-xl tracking-tight border-[1.5px] border-white/30"
+              className="w-14 h-14 rounded-full backdrop-blur flex items-center justify-center font-display font-extrabold text-xl tracking-tight border-[1.5px] border-white/30 overflow-hidden"
+              style={{
+                background: user?.avatarUrl ? "transparent" : "rgba(255,255,255,0.2)",
+                backgroundImage: user?.avatarUrl
+                  ? `url(${user.avatarUrl})`
+                  : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             >
-              {initials || "—"}
+              {!user?.avatarUrl && (initials || "—")}
             </div>
             <div className="flex-1">
               <div className="font-display font-bold text-lg tracking-tight leading-[1.1]">

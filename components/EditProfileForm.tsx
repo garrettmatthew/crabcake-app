@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/lib/actions";
 import { showToast } from "./Toast";
+import PhotoCropper from "./PhotoCropper";
 
 const SWATCHES: Array<[string, string]> = [
   ["g1", "linear-gradient(135deg, var(--crab), var(--gold))"],
@@ -17,18 +18,24 @@ export default function EditProfileForm({
   homeCity: initialCity,
   bio: initialBio,
   avatarSwatch: initialSwatch,
+  avatarUrl: initialAvatarUrl,
 }: {
   displayName: string;
   homeCity: string;
   bio: string;
   avatarSwatch: string;
+  avatarUrl: string | null;
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialName);
   const [homeCity, setHomeCity] = useState(initialCity);
   const [bio, setBio] = useState(initialBio);
   const [swatch, setSwatch] = useState(initialSwatch);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = (displayName || "—")
     .split(/\s+/)
@@ -39,9 +46,31 @@ export default function EditProfileForm({
 
   const activeGradient = SWATCHES.find((s) => s[0] === swatch)?.[1] ?? SWATCHES[0][1];
 
+  async function onCropConfirm(blob: Blob) {
+    setPendingFile(null);
+    setUploading(true);
+    try {
+      const filename = `avatar-${Date.now()}.jpg`;
+      const res = await fetch(
+        `/api/upload?filename=${encodeURIComponent(filename)}`,
+        { method: "POST", body: blob }
+      );
+      const data = await res.json();
+      if (data.url) setAvatarUrl(data.url);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function save() {
     startTransition(async () => {
-      await updateProfile({ displayName, homeCity, bio, avatarSwatch: swatch });
+      await updateProfile({
+        displayName,
+        homeCity,
+        bio,
+        avatarSwatch: swatch,
+        avatarUrl,
+      });
       showToast("Profile saved");
       router.push("/me");
     });
@@ -71,24 +100,80 @@ export default function EditProfileForm({
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24">
         <div className="flex flex-col items-center gap-3.5 mb-6">
           <div
-            className="w-24 h-24 rounded-full flex items-center justify-center text-white font-display font-extrabold text-4xl tracking-[-.03em] shadow-lg"
-            style={{ background: activeGradient }}
+            className="w-24 h-24 rounded-full flex items-center justify-center text-white font-display font-extrabold text-4xl tracking-[-.03em] shadow-lg overflow-hidden"
+            style={{
+              background: avatarUrl ? "transparent" : activeGradient,
+              backgroundImage: avatarUrl ? `url(${avatarUrl})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
           >
-            {initials}
+            {!avatarUrl && initials}
           </div>
-          <div className="flex gap-2">
-            {SWATCHES.map(([id, bg]) => (
+          <div className="flex flex-col items-center gap-2.5">
+            <div className="flex gap-2 items-center">
               <button
-                key={id}
-                onClick={() => setSwatch(id)}
-                className={`w-8 h-8 rounded-full border-2 ${
-                  swatch === id ? "border-[var(--ink)]" : "border-transparent"
-                }`}
-                style={{ background: bg }}
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="h-8 px-3 rounded-full bg-[var(--panel)] border border-[var(--border)] text-[12px] font-bold disabled:opacity-60"
+              >
+                {uploading
+                  ? "Uploading…"
+                  : avatarUrl
+                    ? "Change photo"
+                    : "Upload photo"}
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl(null)}
+                  className="h-8 px-3 rounded-full text-[12px] font-bold text-[var(--ink-3)]"
+                >
+                  Remove
+                </button>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setPendingFile(f);
+                  e.currentTarget.value = "";
+                }}
               />
-            ))}
+            </div>
+            {!avatarUrl && (
+              <>
+                <div className="font-mono text-[9px] tracking-[.08em] uppercase text-[var(--ink-3)] font-semibold">
+                  Or pick a color
+                </div>
+                <div className="flex gap-2">
+                  {SWATCHES.map(([id, bg]) => (
+                    <button
+                      key={id}
+                      onClick={() => setSwatch(id)}
+                      className={`w-8 h-8 rounded-full border-2 ${
+                        swatch === id ? "border-[var(--ink)]" : "border-transparent"
+                      }`}
+                      style={{ background: bg }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
+
+        {pendingFile && (
+          <PhotoCropper
+            file={pendingFile}
+            onCancel={() => setPendingFile(null)}
+            onConfirm={onCropConfirm}
+          />
+        )}
 
         <Field label="Display name">
           <input

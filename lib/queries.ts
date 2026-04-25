@@ -220,6 +220,7 @@ export async function listCommunityReviews(
       userId: ratings.userId,
       userName: sql<string | null>`(SELECT display_name FROM users WHERE users.id = ${ratings.userId})`,
       avatarSwatch: sql<string | null>`(SELECT avatar_swatch FROM users WHERE users.id = ${ratings.userId})`,
+      avatarUrl: sql<string | null>`(SELECT avatar_url FROM users WHERE users.id = ${ratings.userId})`,
     })
     .from(ratings)
     .where(and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, false)))
@@ -269,6 +270,7 @@ export async function getUserProfile(userId: string) {
     homeCity: row.homeCity,
     bio: row.bio,
     avatarSwatch: row.avatarSwatch,
+    avatarUrl: row.avatarUrl,
     role: row.role,
   };
 }

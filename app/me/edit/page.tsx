@@ -10,6 +10,7 @@ export default async function EditProfilePage() {
       homeCity={user.homeCity ?? ""}
       bio={user.bio ?? ""}
       avatarSwatch={user.avatarSwatch ?? "g1"}
+      avatarUrl={user.avatarUrl ?? null}
     />
   );
 }

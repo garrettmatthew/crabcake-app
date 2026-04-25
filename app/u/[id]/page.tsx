@@ -78,10 +78,17 @@ export default async function PublicProfilePage({
         <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl p-4 mb-4">
           <div className="flex items-center gap-3 mb-3">
             <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-white text-[22px] font-extrabold"
-              style={{ background: gradient }}
+              className="w-16 h-16 rounded-full flex items-center justify-center text-white text-[22px] font-extrabold overflow-hidden flex-shrink-0"
+              style={{
+                background: profile.avatarUrl ? "transparent" : gradient,
+                backgroundImage: profile.avatarUrl
+                  ? `url(${profile.avatarUrl})`
+                  : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             >
-              {initials}
+              {!profile.avatarUrl && initials}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
