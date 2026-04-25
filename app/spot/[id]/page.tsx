@@ -5,6 +5,7 @@ import { ensureDemoUser } from "@/lib/auth";
 import SpotScoreRow from "@/components/SpotScoreRow";
 import SpotActions from "@/components/SpotActions";
 import ReviewItem from "@/components/ReviewItem";
+import MyReviewControls from "@/components/MyReviewControls";
 
 // Score circle was rendering stale (showing "—" / "0 reviews") when a fresh
 // rating had just been written. Force dynamic + revalidate=0 so Next never
@@ -168,19 +169,23 @@ export default async function SpotPage({
           />
 
           <div className="flex flex-col gap-2.5 mb-5 mt-1">
-            <Link
-              href={`/rate?spot=${spot.id}`}
-              className="h-[58px] rounded-full font-extrabold text-[16px] flex items-center justify-center gap-2 text-[var(--ink)] tracking-tight"
-              style={{
-                background: "var(--gold)",
-                boxShadow: "0 4px 14px -4px rgba(228,178,72,.5)",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Leave a Review
-            </Link>
+            {spot.userRating != null ? (
+              <MyReviewControls spotId={spot.id} myScore={spot.userRating} />
+            ) : (
+              <Link
+                href={`/rate?spot=${spot.id}`}
+                className="h-[58px] rounded-full font-extrabold text-[16px] flex items-center justify-center gap-2 text-[var(--ink)] tracking-tight"
+                style={{
+                  background: "var(--gold)",
+                  boxShadow: "0 4px 14px -4px rgba(228,178,72,.5)",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Leave a Review
+              </Link>
+            )}
             {spot.address ? (
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(

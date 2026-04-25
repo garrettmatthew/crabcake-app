@@ -105,6 +105,40 @@ export async function submitRating(input: {
   return { ok: true, asBoys };
 }
 
+/**
+ * Delete the current user's rating for a spot. If the rating was the
+ * official Boys review, also clear the spot's boys_* aggregate fields so
+ * the score circle drops back to "—" instead of showing the orphaned
+ * value.
+ */
+export async function deleteRating(spotId: string) {
+  const user = await requireUser();
+  const existing = await db.query.ratings.findFirst({
+    where: and(eq(ratings.userId, user.id), eq(ratings.spotId, spotId)),
+  });
+  if (!existing) return { ok: true, deleted: false };
+
+  await db.delete(ratings).where(eq(ratings.id, existing.id));
+
+  if (existing.isBoysReview) {
+    await db
+      .update(spots)
+      .set({
+        boysScore: null,
+        boysReviewQuote: null,
+        boysReviewPrep: null,
+        boysReviewDate: null,
+      })
+      .where(eq(spots.id, spotId));
+    revalidatePath("/lists");
+  }
+
+  revalidatePath(`/spot/${spotId}`);
+  revalidatePath(`/me`);
+  revalidatePath(`/`);
+  return { ok: true, deleted: true };
+}
+
 export async function toggleBookmark(spotId: string) {
   const user = await requireUser();
   const existing = await db.query.bookmarks.findFirst({

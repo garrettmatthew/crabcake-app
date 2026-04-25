@@ -67,9 +67,10 @@ export default function ReviewItem({ review }: { review: Review }) {
         <div className="text-[13px] text-[var(--ink-2)] leading-[1.4]">{review.note}</div>
       )}
       {review.photoUrl && (
-        <div
-          className="mt-2 rounded-xl bg-cover bg-center h-36"
-          style={{ backgroundImage: `url(${review.photoUrl})` }}
+        <PhotoLightbox
+          src={review.photoUrl}
+          alt={`Photo from ${review.userName ?? "a reviewer"}`}
+          className="mt-2 rounded-xl h-36 w-full block border-0 p-0"
         />
       )}
     </div>
