@@ -31,6 +31,42 @@ export default async function ListsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24 px-3.5 pt-1">
+        {/* Live, momentum-based ranking — refreshed every page load */}
+        <Link
+          href="/lists/best-this-month"
+          className="block rounded-2xl overflow-hidden mb-4 px-4 py-3.5 text-white"
+          style={{
+            background: "linear-gradient(135deg, var(--crab), var(--gold))",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="text-[28px] flex-shrink-0">🦀</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-mono text-[9.5px] tracking-[.12em] uppercase font-bold opacity-90">
+                Live · this month
+              </div>
+              <div className="font-display font-extrabold text-[18px] tracking-tight leading-tight">
+                Best of {new Date().toLocaleString("en-US", { month: "long" })}
+              </div>
+              <div className="text-[11.5px] opacity-90">
+                Hottest spots in the last 30 days
+              </div>
+            </div>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              className="flex-shrink-0"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
+        </Link>
+
         <div className="font-display font-extrabold text-xl tracking-tight m-1 mb-3 flex justify-between items-baseline">
           Featured
           <span className="text-xs font-semibold text-[var(--crab)]">Top 5 →</span>

@@ -48,6 +48,12 @@ export type SpotWithStats = {
   userPhotoUrl: string | null;
   userPhotoUrls: string[] | null;
   userRatingIsBoys: boolean;
+  /** Union of every tag that appears on any rating for this spot. */
+  allTags: string[];
+  /** Total rating count (Boys + community), used for momentum scoring. */
+  ratingCount: number;
+  /** Count of ratings created in the last 30 days. */
+  recentRatingCount: number;
 };
 
 /** Fetch all published spots with community stats and user state.
@@ -80,6 +86,7 @@ export async function listSpots(): Promise<SpotWithStats[]> {
         photoUrl: ratings.photoUrl,
         photoUrls: ratings.photoUrls,
         isBoysReview: ratings.isBoysReview,
+        createdAt: ratings.createdAt,
       })
       .from(ratings),
     user
@@ -102,6 +109,8 @@ export async function listSpots(): Promise<SpotWithStats[]> {
   }
   const savedSet = new Set(myBookmarks.map((b) => b.spotId));
 
+  const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
   return spotRows.map((row) => {
     const list = bySpot.get(row.id) ?? [];
     const community = list.filter((r) => !r.isBoysReview);
@@ -114,6 +123,14 @@ export async function listSpots(): Promise<SpotWithStats[]> {
             community.length
           ).toFixed(1);
     const myRating = user ? list.find((r) => r.userId === user.id) : null;
+    // Aggregate tags across all ratings on this spot, deduped.
+    const tagSet = new Set<string>();
+    for (const r of list) {
+      if (r.tags) for (const t of r.tags) tagSet.add(t);
+    }
+    const recentCount = list.filter(
+      (r) => new Date(r.createdAt).getTime() >= monthAgo
+    ).length;
     return normalizeSpot({
       ...row,
       communityScore,
@@ -125,6 +142,9 @@ export async function listSpots(): Promise<SpotWithStats[]> {
       userPhotoUrls: myRating?.photoUrls ?? null,
       userRatingIsBoys: Boolean(myRating?.isBoysReview),
       isSaved: savedSet.has(row.id),
+      allTags: Array.from(tagSet),
+      ratingCount: list.length,
+      recentRatingCount: recentCount,
     } as Record<string, unknown>);
   });
 }

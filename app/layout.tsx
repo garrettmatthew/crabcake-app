@@ -39,10 +39,7 @@ export const metadata: Metadata = {
     title: "Crabcakes",
     description: "Every crab cake in America, ranked. By the Baltimore Boys.",
   },
-  icons: {
-    icon: "/favicon.svg",
-    apple: "/favicon.svg",
-  },
+  // icons: not set — Next 15+ auto-discovers app/icon.tsx + app/apple-icon.tsx
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",

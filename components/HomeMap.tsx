@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SpotWithStats } from "@/lib/queries";
 import { scoreClass } from "./ScoreCircle";
+import SpotFilterBar, { type SortBy } from "./SpotFilterBar";
 
 type LRef = typeof import("leaflet");
 type MapRef = import("leaflet").Map;
+
+function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+) {
+  const toRad = (n: number) => (n * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
 
 export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
   const router = useRouter();
@@ -16,6 +33,72 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
   const tileRef = useRef<import("leaflet").TileLayer | null>(null);
   const [selectedId, setSelectedId] = useState<string>(spots[0]?.id ?? "");
   const [sheetState, setSheetState] = useState<"peek" | "mid" | "expanded">("mid");
+
+  // Filter + sort state — drives the list (the map keeps showing every
+  // spot so you can still discover by panning / zooming).
+  const [sortBy, setSortBy] = useState<SortBy>("rank");
+  const [venueFilter, setVenueFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
+
+  // Distinct venue types + tag union, sorted by frequency.
+  const venues = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of spots) {
+      if (s.venueType) counts.set(s.venueType, (counts.get(s.venueType) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]);
+  }, [spots]);
+
+  const tagPool = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of spots) {
+      for (const t of s.allTags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]);
+  }, [spots]);
+
+  // Compute filtered + sorted display list.
+  const displaySpots = useMemo(() => {
+    let out = spots;
+    if (venueFilter) {
+      out = out.filter((s) => s.venueType === venueFilter);
+    }
+    if (tagFilters.length > 0) {
+      out = out.filter((s) =>
+        tagFilters.every((t) => s.allTags.includes(t))
+      );
+    }
+    const cmp: Record<SortBy, (a: SpotWithStats, b: SpotWithStats) => number> = {
+      rank: () => 0, // already sorted by listSpots
+      boys: (a, b) =>
+        (b.boysScore ?? -Infinity) - (a.boysScore ?? -Infinity),
+      community: (a, b) =>
+        (b.communityScore ?? -Infinity) - (a.communityScore ?? -Infinity),
+      google: (a, b) =>
+        (b.googleRating ?? -Infinity) - (a.googleRating ?? -Infinity),
+      distance: (a, b) => {
+        if (!userLoc) return 0;
+        return (
+          haversineKm(userLoc, { lat: a.latitude, lng: a.longitude }) -
+          haversineKm(userLoc, { lat: b.latitude, lng: b.longitude })
+        );
+      },
+      newest: (a, b) => b.recentRatingCount - a.recentRatingCount,
+    };
+    if (sortBy !== "rank") {
+      out = [...out].sort(cmp[sortBy]);
+    }
+    return out;
+  }, [spots, venueFilter, tagFilters, sortBy, userLoc]);
+
+  function clearFilters() {
+    setSortBy("rank");
+    setVenueFilter(null);
+    setTagFilters([]);
+  }
 
   // Init Leaflet
   useEffect(() => {
@@ -44,6 +127,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const { latitude, longitude } = pos.coords;
+            setUserLoc({ lat: latitude, lng: longitude });
             // Only auto-fly if the location is within US bounds
             if (
               latitude >= 15 &&
@@ -363,15 +447,43 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
             <div>
               <h2 className="font-display text-lg font-bold tracking-tight">Top rated · USA</h2>
               <div className="text-[11.5px] text-[var(--ink-3)] font-medium mt-0.5">
-                {spots.length} spots · Boys score, then Google rating
+                {displaySpots.length === spots.length
+                  ? `${spots.length} spots`
+                  : `${displaySpots.length} of ${spots.length} spots`}
               </div>
             </div>
             <span className="text-xs font-semibold text-[var(--crab)]">Top ↓</span>
           </div>
         </div>
 
+        <SpotFilterBar
+          venues={venues}
+          tags={tagPool}
+          selectedVenue={venueFilter}
+          selectedTags={tagFilters}
+          sortBy={sortBy}
+          hasUserLocation={userLoc != null}
+          totalCount={spots.length}
+          visibleCount={displaySpots.length}
+          onVenueChange={setVenueFilter}
+          onTagsChange={setTagFilters}
+          onSortChange={setSortBy}
+          onClear={clearFilters}
+        />
+
         <div ref={listRef} className="flex-1 overflow-y-auto px-2.5 pb-4 pt-2">
-          {spots.map((s, i) => (
+          {displaySpots.length === 0 ? (
+            <div className="text-center py-10 text-[13px] text-[var(--ink-3)]">
+              No spots match these filters.{" "}
+              <button
+                onClick={clearFilters}
+                className="font-bold text-[var(--crab)] underline decoration-dotted underline-offset-2"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            displaySpots.map((s, i) => (
             <Link
               href={`/spot/${s.id}`}
               key={s.id}
@@ -470,7 +582,8 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
                 </div>
               )}
             </Link>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
