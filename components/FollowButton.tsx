@@ -51,16 +51,9 @@ export default function FollowButton({
       type="button"
       onClick={onClick}
       disabled={pending}
-      className="h-9 px-4 rounded-full font-bold text-[12.5px] disabled:opacity-60"
-      style={{
-        background: following ? "var(--panel)" : "var(--ink)",
-        color: following ? "var(--ink)" : "var(--bg)",
-        border: following
-          ? "1px solid var(--border)"
-          : "1px solid var(--ink)",
-      }}
+      className={`pill ${following ? "" : "pill-ink"}`}
     >
-      {following ? "Following" : "+ Follow"}
+      {following ? "✓ Following" : "+ Follow"}
     </button>
   );
 }
