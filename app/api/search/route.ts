@@ -28,8 +28,10 @@ type PlaceResult = {
 };
 
 /**
- * Search the DB for existing spots + Nominatim (OpenStreetMap) for new places.
- * No API key required. Respects Nominatim usage policy by setting a UA header.
+ * Search the DB for existing spots + Google Places for new places.
+ * Google handles fuzzy spelling ("sabrinas" → "Sabrina's") and proper venue
+ * categorization (no highways or random non-food). Falls back to no places
+ * if the API key isn't set. Cached 5 min via fetch revalidate.
  */
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
@@ -68,110 +70,128 @@ export async function GET(req: NextRequest) {
     boysScore: r.boysScore == null ? null : parseFloat(r.boysScore as string),
   }));
 
-  // Nominatim for places — only query if user looks like they typed a place name,
-  // not just a city we already have. Limit to US for now. Pull more than we
-  // need so we can sort food-serving venues first and still keep variety.
+  // Google Places for "Add a new spot" suggestions. Same engine as /submit, so
+  // results are consistent — and Google handles "sabrinas" → "Sabrina's", never
+  // returns highways or roads. We pull 10 then sort food types first.
   let placeResults: PlaceResult[] = [];
-  try {
-    const url =
-      `https://nominatim.openstreetmap.org/search?format=jsonv2` +
-      `&countrycodes=us&limit=15&addressdetails=1&extratags=1&q=${encodeURIComponent(q)}`;
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": "Crabcake App (https://crabcakes.app)",
-        "Accept-Language": "en",
-      },
-      next: { revalidate: 60 * 60 },
-    });
-    if (r.ok) {
-      const places = (await r.json()) as Array<{
-        place_id: number;
-        lat: string;
-        lon: string;
-        display_name: string;
-        name?: string;
-        category?: string; // e.g. "amenity", "shop", "tourism"
-        type?: string; // e.g. "restaurant", "cafe", "bar"
-        address?: {
-          house_number?: string;
-          road?: string;
-          neighbourhood?: string;
-          suburb?: string;
-          city?: string;
-          town?: string;
-          village?: string;
-          state?: string;
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  if (key) {
+    try {
+      const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+          "X-Goog-FieldMask":
+            "places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.location,places.primaryType,places.types,places.addressComponents",
+        },
+        body: JSON.stringify({ textQuery: q, maxResultCount: 10 }),
+        next: { revalidate: 60 * 5 }, // 5-min cache to keep API costs predictable
+      });
+      if (r.ok) {
+        const data = (await r.json()) as {
+          places?: Array<{
+            id: string;
+            displayName?: { text?: string };
+            formattedAddress?: string;
+            shortFormattedAddress?: string;
+            location?: { latitude?: number; longitude?: number };
+            primaryType?: string;
+            types?: string[];
+            addressComponents?: Array<{
+              longText: string;
+              shortText: string;
+              types: string[];
+            }>;
+          }>;
         };
-      }>;
 
-      // Friendly label for known OSM types — null if we don't have a mapping.
-      const labelFor = (cat?: string, type?: string): string | null => {
-        if (!type) return null;
-        const map: Record<string, string> = {
-          restaurant: "Restaurant",
-          cafe: "Cafe",
-          fast_food: "Fast Food",
-          bar: "Bar",
-          pub: "Pub",
-          biergarten: "Beer Garden",
-          food_court: "Food Court",
-          ice_cream: "Ice Cream",
-          bakery: "Bakery",
-          deli: "Deli",
-          butcher: "Butcher",
-          seafood: "Seafood",
-          hotel: "Hotel",
-          motel: "Motel",
-          guest_house: "Inn",
-          golf_course: "Golf Club",
-        };
-        if (map[type]) return map[type];
-        // Fall back to titlecasing the category if it's at least informative.
-        if (cat && cat !== "amenity") {
-          return cat.charAt(0).toUpperCase() + cat.slice(1);
-        }
-        return null;
-      };
+        // Friendly label for the most-specific recognized Google type.
+        const labelMap: Array<[string, string]> = [
+          ["country_club", "Country Club"],
+          ["seafood_restaurant", "Seafood"],
+          ["oyster_bar", "Oyster Bar"],
+          ["fine_dining_restaurant", "Fine Dining"],
+          ["steak_house", "Steakhouse"],
+          ["sports_bar", "Sports Bar"],
+          ["pub", "Pub"],
+          ["bar_and_grill", "Bar & Grill"],
+          ["wine_bar", "Wine Bar"],
+          ["bar", "Bar"],
+          ["coffee_shop", "Coffee"],
+          ["cafe", "Cafe"],
+          ["bakery", "Bakery"],
+          ["deli", "Deli"],
+          ["fast_food_restaurant", "Fast Food"],
+          ["diner", "Diner"],
+          ["catering", "Catering"],
+          ["hotel", "Hotel"],
+          ["resort_hotel", "Resort"],
+          ["inn", "Inn"],
+          ["banquet_hall", "Banquet Hall"],
+          ["golf_course", "Golf Club"],
+          ["club", "Club"],
+          ["restaurant", "Restaurant"],
+        ];
+        const FOOD_TYPES = new Set(labelMap.map(([k]) => k).concat([
+          "food", "meal_takeaway", "meal_delivery", "food_court", "food_hall",
+        ]));
 
-      // Things that almost certainly serve food. Prioritized in sort.
-      const FOOD_TYPES = new Set([
-        "restaurant", "cafe", "fast_food", "bar", "pub", "biergarten",
-        "food_court", "ice_cream", "bakery", "deli", "seafood",
-        // Hotels/inns commonly have restaurants — borderline but include
-        "hotel", "guest_house", "golf_course",
-      ]);
+        placeResults = (data.places ?? [])
+          .filter((p) => p.displayName?.text)
+          .map((p) => {
+            const allTypes = [
+              ...(p.primaryType ? [p.primaryType] : []),
+              ...(p.types ?? []),
+            ];
+            const isFood = allTypes.some((t) => FOOD_TYPES.has(t));
+            let venueType: string | null = null;
+            for (const [k, v] of labelMap) {
+              if (allTypes.includes(k)) {
+                venueType = v;
+                break;
+              }
+            }
 
-      placeResults = places
-        .filter((p) => p.name && p.name.trim().length > 0)
-        .map((p) => {
-          const a = p.address ?? {};
-          const street =
-            [a.house_number, a.road].filter(Boolean).join(" ") ||
-            a.neighbourhood ||
-            a.suburb ||
-            null;
-          const isFood = FOOD_TYPES.has(p.type ?? "");
-          return {
-            kind: "place" as const,
-            placeId: String(p.place_id),
-            name: p.name!,
-            city: [a.city ?? a.town ?? a.village, a.state]
-              .filter(Boolean)
-              .join(", "),
-            street,
-            venueType: labelFor(p.category, p.type),
-            isFood,
-            latitude: parseFloat(p.lat),
-            longitude: parseFloat(p.lon),
-            displayName: p.display_name,
-          };
-        })
-        // Food-serving venues first, but don't drop non-food entirely
-        .sort((a, b) => Number(b.isFood) - Number(a.isFood))
-        .slice(0, 6);
+            // Pull street ("123 Main St") from the formatted address — first
+            // segment up to the first comma. Google's formattedAddress is
+            // consistently "<street>, <city>, <state> <zip>, <country>".
+            const fullAddr = p.formattedAddress ?? "";
+            const firstComma = fullAddr.indexOf(",");
+            const street = firstComma > 0 ? fullAddr.slice(0, firstComma) : null;
+
+            // Locality + state for the secondary line.
+            const comps = p.addressComponents ?? [];
+            const cityName =
+              comps.find((c) => c.types.includes("locality"))?.longText ??
+              comps.find((c) => c.types.includes("postal_town"))?.longText ??
+              comps.find((c) => c.types.includes("sublocality"))?.longText ??
+              "";
+            const stateAbbr =
+              comps.find((c) => c.types.includes("administrative_area_level_1"))
+                ?.shortText ?? "";
+            const city = [cityName, stateAbbr].filter(Boolean).join(", ");
+
+            return {
+              kind: "place" as const,
+              placeId: p.id,
+              name: p.displayName!.text!,
+              city,
+              street,
+              venueType,
+              isFood,
+              latitude: p.location?.latitude ?? 0,
+              longitude: p.location?.longitude ?? 0,
+              displayName: fullAddr,
+            };
+          })
+          // Food first, but keep everything — country clubs, hotels, etc. still show
+          .sort((a, b) => Number(b.isFood) - Number(a.isFood))
+          .slice(0, 6);
+      }
+    } catch {
+      // Ignore network errors — DB results still return
     }
-  } catch {
-    // Ignore network errors — DB results still return
   }
 
   return NextResponse.json({ spots: spotResults, places: placeResults });

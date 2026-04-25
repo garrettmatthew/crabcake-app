@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { addSpotByPlaceId } from "@/lib/actions";
+import { showToast } from "./Toast";
 
 type SpotResult = {
   kind: "spot";
@@ -33,6 +35,8 @@ export default function SearchBar() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const blurTimer = useRef<number | null>(null);
+  const [adding, startTransition] = useTransition();
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (q.trim().length < 2) {
@@ -152,35 +156,53 @@ export default function SearchBar() {
                 // same city — one is on Callowhill, the other on Bainbridge.
                 const locationBits = [p.street, p.city].filter(Boolean);
                 const subtitle = locationBits.join(" · ");
+                const isThisAdding = addingId === p.placeId;
                 return (
                   <button
                     key={p.placeId}
+                    disabled={adding}
                     onClick={() => {
-                      // Use the street address (when we have it) to make the
-                      // Google Places search land on the exact venue. Otherwise
-                      // fall back to name + city.
-                      const query = (
-                        p.street
-                          ? `${p.name} ${p.street} ${p.city}`
-                          : `${p.name} ${p.city}`
-                      ).trim();
-                      router.push(`/submit?q=${encodeURIComponent(query)}`);
+                      // We have the Google placeId already — add it directly,
+                      // skipping the /submit page entirely.
+                      setAddingId(p.placeId);
+                      startTransition(async () => {
+                        try {
+                          const res = await addSpotByPlaceId(p.placeId);
+                          if (res.ok) {
+                            showToast(
+                              res.alreadyExisted
+                                ? "Already on the map"
+                                : "Added to the map"
+                            );
+                            router.push(`/spot/${res.spotId}`);
+                          }
+                        } catch (e) {
+                          showToast(
+                            e instanceof Error ? e.message : "Failed to add"
+                          );
+                          setAddingId(null);
+                        }
+                      });
                     }}
                     onMouseDown={(e) => e.preventDefault()}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--panel-2)] text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--panel-2)] text-left disabled:opacity-60"
                   >
                     <div className="w-9 h-9 rounded-lg bg-[var(--bg-2)] flex items-center justify-center flex-shrink-0 text-[var(--crab)]">
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2.2}
-                        strokeLinecap="round"
-                      >
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
+                      {isThisAdding ? (
+                        <div className="w-4 h-4 border-2 border-[var(--border-2)] border-t-[var(--crab)] rounded-full animate-spin" />
+                      ) : (
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2.2}
+                          strokeLinecap="round"
+                        >
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
