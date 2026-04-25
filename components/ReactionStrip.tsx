@@ -56,29 +56,11 @@ export default function ReactionStrip({
   }
 
   return (
-    <div className="flex gap-1 mt-1.5">
+    <div className="flex gap-1.5 mt-2">
       {KINDS.map(({ kind, emoji, label }) => {
         const count = counts[kind] ?? 0;
         const active = mine.has(kind);
-        if (count === 0 && !active) {
-          // Render small ghost button so users can opt in
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => onToggle(kind)}
-              aria-label={label}
-              className="h-7 px-2 rounded-full text-[12px] font-semibold flex items-center gap-1 opacity-60 hover:opacity-100"
-              style={{
-                background: "transparent",
-                border: "1px dashed var(--border-2)",
-                color: "var(--ink-3)",
-              }}
-            >
-              <span>{emoji}</span>
-            </button>
-          );
-        }
+        const hasCount = count > 0;
         return (
           <button
             key={kind}
@@ -86,19 +68,34 @@ export default function ReactionStrip({
             onClick={() => onToggle(kind)}
             aria-label={label}
             aria-pressed={active}
-            className="h-7 px-2 rounded-full text-[12px] font-semibold flex items-center gap-1"
+            className="h-7 rounded-full text-[12px] font-bold flex items-center justify-center"
             style={{
+              minWidth: 36,
+              padding: hasCount ? "0 9px" : "0 8px",
+              gap: 4,
               background: active
-                ? "var(--gold-soft, rgba(228,178,72,.18))"
+                ? "var(--gold-soft, rgba(228,178,72,.20))"
                 : "var(--panel)",
               border: active
                 ? "1px solid var(--gold)"
                 : "1px solid var(--border)",
               color: "var(--ink)",
+              opacity: !active && !hasCount ? 0.7 : 1,
+              transition: "opacity .15s, background .15s",
             }}
           >
-            <span>{emoji}</span>
-            {count > 0 && <span>{count}</span>}
+            <span style={{ fontSize: 13, lineHeight: 1 }}>{emoji}</span>
+            {hasCount && (
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontVariantNumeric: "tabular-nums",
+                  color: active ? "var(--ink)" : "var(--ink-2)",
+                }}
+              >
+                {count}
+              </span>
+            )}
           </button>
         );
       })}

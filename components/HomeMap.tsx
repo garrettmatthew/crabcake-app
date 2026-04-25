@@ -168,32 +168,6 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
         subdomains: "abcd",
       }).addTo(map);
 
-      // Cluster overlapping pins. Once spots get dense in a city, the map
-      // shows a single bubble with the count instead of a fan of pins. Click
-      // expands to the children.
-      await import("leaflet.markercluster");
-      const Lany = L as unknown as {
-        markerClusterGroup: (opts: object) => import("leaflet").Layer & {
-          addLayer: (m: import("leaflet").Layer) => void;
-        };
-      };
-      const cluster = Lany.markerClusterGroup({
-        showCoverageOnHover: false,
-        maxClusterRadius: 36,
-        spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 14,
-        iconCreateFunction: (c: { getChildCount: () => number }) => {
-          const count = c.getChildCount();
-          return L.divIcon({
-            className: "marker-container",
-            html: `<div class="marker-cluster">${count}</div>`,
-            iconSize: [42, 42],
-            iconAnchor: [21, 21],
-          });
-        },
-      });
-      map.addLayer(cluster);
-
       // Add markers — Boys score if available, else Google rating with star pip
       for (const s of spots) {
         const savedBadge = s.isSaved
@@ -220,12 +194,11 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
           iconSize: [44, 44],
           iconAnchor: [22, 22],
         });
-        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name });
+        const m = L.marker([s.latitude, s.longitude], { icon, title: s.name }).addTo(map);
         m.on("click", () => {
           setSelectedId(s.id);
           router.push(`/spot/${s.id}`);
         });
-        cluster.addLayer(m);
       }
     })();
     return () => {
@@ -394,7 +367,25 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
   }[sheetState];
 
   return (
-    <div className="flex-1 relative min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Filter bar lives at the top so it's always visible, regardless of
+          the bottom-sheet's drag state. */}
+      <SpotFilterBar
+        venues={venues}
+        tags={tagPool}
+        selectedVenue={venueFilter}
+        selectedTags={tagFilters}
+        sortBy={sortBy}
+        hasUserLocation={userLoc != null}
+        totalCount={spots.length}
+        visibleCount={displaySpots.length}
+        onVenueChange={setVenueFilter}
+        onTagsChange={setTagFilters}
+        onSortChange={setSortBy}
+        onClear={clearFilters}
+      />
+
+      <div className="flex-1 relative min-h-0 overflow-hidden">
       <div
         ref={mapEl}
         className="w-full h-full"
@@ -482,21 +473,6 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
             <span className="text-xs font-semibold text-[var(--crab)]">Top ↓</span>
           </div>
         </div>
-
-        <SpotFilterBar
-          venues={venues}
-          tags={tagPool}
-          selectedVenue={venueFilter}
-          selectedTags={tagFilters}
-          sortBy={sortBy}
-          hasUserLocation={userLoc != null}
-          totalCount={spots.length}
-          visibleCount={displaySpots.length}
-          onVenueChange={setVenueFilter}
-          onTagsChange={setTagFilters}
-          onSortChange={setSortBy}
-          onClear={clearFilters}
-        />
 
         <div ref={listRef} className="flex-1 overflow-y-auto px-2.5 pb-4 pt-2">
           {displaySpots.length === 0 ? (
@@ -612,6 +588,7 @@ export default function HomeMap({ spots }: { spots: SpotWithStats[] }) {
             ))
           )}
         </div>
+      </div>
       </div>
     </div>
   );
