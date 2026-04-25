@@ -1,5 +1,6 @@
 import { scoreClass } from "./ScoreCircle";
 import PhotoLightbox from "./PhotoLightbox";
+import OwnReviewControls from "./OwnReviewControls";
 
 type Review = {
   id: string;
@@ -8,12 +9,23 @@ type Review = {
   tags: string[] | null;
   photoUrl?: string | null;
   createdAt: Date | string;
+  userId: string;
   userName: string | null;
   avatarSwatch: string | null;
 };
 
-export default function ReviewItem({ review }: { review: Review }) {
+export default function ReviewItem({
+  review,
+  spotId,
+  currentUserId,
+}: {
+  review: Review;
+  /** Optional — when provided, lets the user edit/delete their own row inline. */
+  spotId?: string;
+  currentUserId?: string | null;
+}) {
   const score = parseFloat(review.score);
+  const isOwn = currentUserId != null && currentUserId === review.userId;
   const initials = (review.userName ?? "AN")
     .split(/\s+/)
     .slice(0, 2)
@@ -34,33 +46,53 @@ export default function ReviewItem({ review }: { review: Review }) {
   return (
     <div className="border-t border-[var(--border)] py-2.5 first:border-t-0 first:pt-0">
       <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+            className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
             style={{ background: gradient }}
           >
             {initials}
           </div>
-          <div>
-            <div className="text-[12.5px] font-semibold">{review.userName ?? "A Baltimore local"}</div>
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-semibold flex items-center gap-1.5">
+              <span className="truncate">
+                {review.userName ?? "A Baltimore local"}
+              </span>
+              {isOwn && (
+                <span
+                  className="font-mono text-[8.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                  style={{
+                    background: "var(--gold-soft, rgba(228,178,72,.18))",
+                    color: "var(--ink-2)",
+                  }}
+                >
+                  You
+                </span>
+              )}
+            </div>
             <div className="font-mono text-[10px] text-[var(--ink-3)]">{dateStr}</div>
           </div>
         </div>
-        <div
-          className={`w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-extrabold text-xs text-white ${scoreClass(
-            score
-          )}`}
-          style={
-            score >= 9
-              ? { background: "var(--gold)", color: "var(--ink)" }
-              : score >= 8
-                ? { background: "var(--crab)" }
-                : score >= 7
-                  ? { background: "#c98551" }
-                  : { background: "var(--ink-3)" }
-          }
-        >
-          {score.toFixed(1)}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isOwn && spotId && (
+            <OwnReviewControls spotId={spotId} />
+          )}
+          <div
+            className={`w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-extrabold text-xs text-white ${scoreClass(
+              score
+            )}`}
+            style={
+              score >= 9
+                ? { background: "var(--gold)", color: "var(--ink)" }
+                : score >= 8
+                  ? { background: "var(--crab)" }
+                  : score >= 7
+                    ? { background: "#c98551" }
+                    : { background: "var(--ink-3)" }
+            }
+          >
+            {score.toFixed(1)}
+          </div>
         </div>
       </div>
       {review.note && (

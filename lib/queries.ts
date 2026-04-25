@@ -44,86 +44,82 @@ export type SpotWithStats = {
   userRating: number | null;
   userNote: string | null;
   userTags: string[] | null;
+  userRatingIsBoys: boolean;
 };
 
-/** Fetch all published spots with community stats and user state. */
+/** Fetch all published spots with community stats and user state.
+ *
+ * Same approach as getSpot — fetch raw rows in parallel and aggregate
+ * in JS instead of using correlated subqueries inside the spots SELECT.
+ * The earlier subquery version was silently returning null aggregates
+ * and missing user-rating data on the rate page.
+ */
 export async function listSpots(): Promise<SpotWithStats[]> {
   const user = await getCurrentUser();
 
-  const rows = await db
-    .select({
-      id: spots.id,
-      name: spots.name,
-      city: spots.city,
-      neighborhood: spots.neighborhood,
-      address: spots.address,
-      latitude: spots.latitude,
-      longitude: spots.longitude,
-      priceLevel: spots.priceLevel,
-      photoUrl: spots.photoUrl,
-      establishedYear: spots.establishedYear,
-      boysScore: spots.boysScore,
-      boysReviewDate: spots.boysReviewDate,
-      boysReviewPrep: spots.boysReviewPrep,
-      boysReviewQuote: spots.boysReviewQuote,
-      style: spots.style,
-      prep: spots.prep,
-      filler: spots.filler,
-      size: spots.size,
-      price: spots.price,
-      side: spots.side,
-      phone: spots.phone,
-      website: spots.website,
-      hoursJson: spots.hoursJson,
-      googleRating: spots.googleRating,
-      googleRatingCount: spots.googleRatingCount,
-      communityScore: sql<string | null>`(
-        SELECT ROUND(AVG(score)::numeric, 1)
-        FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
-      )`,
-      communityCount: sql<number>`(
-        SELECT COUNT(*)::int
-        FROM ${ratings}
-        WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.isBoysReview} = FALSE
-      )`,
-      userRating: user
-        ? sql<string | null>`(
-            SELECT score
-            FROM ${ratings}
-            WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.userId} = ${user.id}
-          )`
-        : sql<string | null>`NULL`,
-      userNote: user
-        ? sql<string | null>`(
-            SELECT note
-            FROM ${ratings}
-            WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.userId} = ${user.id}
-          )`
-        : sql<string | null>`NULL`,
-      userTags: user
-        ? sql<string[] | null>`(
-            SELECT tags
-            FROM ${ratings}
-            WHERE ${ratings.spotId} = ${spots.id} AND ${ratings.userId} = ${user.id}
-          )`
-        : sql<string[] | null>`NULL`,
-      isSaved: user
-        ? sql<boolean>`EXISTS (
-            SELECT 1 FROM ${bookmarks}
-            WHERE ${bookmarks.spotId} = ${spots.id} AND ${bookmarks.userId} = ${user.id}
-          )`
-        : sql<boolean>`FALSE`,
-    })
-    .from(spots)
-    .where(eq(spots.isPublished, true))
-    .orderBy(
-      sql`${spots.boysScore} DESC NULLS LAST`,
-      sql`${spots.googleRating} DESC NULLS LAST`,
-      sql`${spots.googleRatingCount} DESC NULLS LAST`
-    );
+  const [spotRows, allRatings, myBookmarks] = await Promise.all([
+    db
+      .select()
+      .from(spots)
+      .where(eq(spots.isPublished, true))
+      .orderBy(
+        sql`${spots.boysScore} DESC NULLS LAST`,
+        sql`${spots.googleRating} DESC NULLS LAST`,
+        sql`${spots.googleRatingCount} DESC NULLS LAST`
+      ),
+    db
+      .select({
+        spotId: ratings.spotId,
+        userId: ratings.userId,
+        score: ratings.score,
+        note: ratings.note,
+        tags: ratings.tags,
+        isBoysReview: ratings.isBoysReview,
+      })
+      .from(ratings),
+    user
+      ? db
+          .select({ spotId: bookmarks.spotId })
+          .from(bookmarks)
+          .where(eq(bookmarks.userId, user.id))
+      : Promise.resolve([] as Array<{ spotId: string }>),
+  ]);
 
-  return rows.map(normalizeSpot);
+  // Index ratings by spot for O(N+M) aggregation.
+  const bySpot = new Map<
+    string,
+    Array<(typeof allRatings)[number]>
+  >();
+  for (const r of allRatings) {
+    const arr = bySpot.get(r.spotId);
+    if (arr) arr.push(r);
+    else bySpot.set(r.spotId, [r]);
+  }
+  const savedSet = new Set(myBookmarks.map((b) => b.spotId));
+
+  return spotRows.map((row) => {
+    const list = bySpot.get(row.id) ?? [];
+    const community = list.filter((r) => !r.isBoysReview);
+    const communityCount = community.length;
+    const communityScore =
+      community.length === 0
+        ? null
+        : (
+            community.reduce((s, r) => s + parseFloat(r.score), 0) /
+            community.length
+          ).toFixed(1);
+    const myRating = user ? list.find((r) => r.userId === user.id) : null;
+    return normalizeSpot({
+      ...row,
+      communityScore,
+      communityCount,
+      userRating: myRating?.score ?? null,
+      userNote: myRating?.note ?? null,
+      userTags: myRating?.tags ?? null,
+      userRatingIsBoys: Boolean(myRating?.isBoysReview),
+      isSaved: savedSet.has(row.id),
+    } as Record<string, unknown>);
+  });
 }
 
 export async function getSpot(id: string): Promise<SpotWithStats | null> {
@@ -179,6 +175,7 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
     userRating: myRating?.score ?? null,
     userNote: myRating?.note ?? null,
     userTags: myRating?.tags ?? null,
+    userRatingIsBoys: Boolean(myRating?.isBoysReview),
     isSaved: Boolean(isSavedRow),
   } as Record<string, unknown>);
 }

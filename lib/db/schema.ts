@@ -69,7 +69,10 @@ export const ratings = pgTable(
     score: numeric("score", { precision: 3, scale: 1 }).notNull(),
     note: text("note"),
     tags: text("tags").array(),
+    // Legacy single-photo column. Kept for backward compat with old reads;
+    // new writes go to photoUrls. Will eventually be dropped.
     photoUrl: text("photo_url"),
+    photoUrls: text("photo_urls").array(),
     isBoysReview: boolean("is_boys_review").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

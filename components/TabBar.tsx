@@ -90,7 +90,8 @@ export default function TabBar() {
         <span className="text-[9.5px] font-semibold">Lists</span>
       </Link>
       <button
-        onClick={() => router.push("/rate")}
+        onClick={() => router.push("/submit")}
+        aria-label="Add a spot"
         className="flex flex-col items-center justify-center gap-[3px] py-1.5"
       >
         <span className="bg-[var(--crab)] text-white rounded-[20px] w-10 h-10 flex items-center justify-center">

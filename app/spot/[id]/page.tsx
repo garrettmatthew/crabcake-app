@@ -5,7 +5,8 @@ import { ensureDemoUser } from "@/lib/auth";
 import SpotScoreRow from "@/components/SpotScoreRow";
 import SpotActions from "@/components/SpotActions";
 import ReviewItem from "@/components/ReviewItem";
-import MyReviewControls from "@/components/MyReviewControls";
+import BoysTakeControls from "@/components/BoysTakeControls";
+import { getCurrentUser } from "@/lib/auth";
 
 // Score circle was rendering stale (showing "—" / "0 reviews") when a fresh
 // rating had just been written. Force dynamic + revalidate=0 so Next never
@@ -23,6 +24,7 @@ export default async function SpotPage({
   const spot = await getSpot(id);
   if (!spot) notFound();
   const reviews = await listCommunityReviews(id, 12);
+  const me = await getCurrentUser();
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -169,23 +171,22 @@ export default async function SpotPage({
           />
 
           <div className="flex flex-col gap-2.5 mb-5 mt-1">
-            {spot.userRating != null ? (
-              <MyReviewControls spotId={spot.id} myScore={spot.userRating} />
-            ) : (
-              <Link
-                href={`/rate?spot=${spot.id}`}
-                className="h-[58px] rounded-full font-extrabold text-[16px] flex items-center justify-center gap-2 text-[var(--ink)] tracking-tight"
-                style={{
-                  background: "var(--gold)",
-                  boxShadow: "0 4px 14px -4px rgba(228,178,72,.5)",
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Leave a Review
-              </Link>
-            )}
+            <Link
+              href={`/rate?spot=${spot.id}`}
+              className="h-[58px] rounded-full font-extrabold text-[16px] flex items-center justify-center gap-2 text-[var(--ink)] tracking-tight"
+              style={{
+                background: "var(--gold)",
+                boxShadow: "0 4px 14px -4px rgba(228,178,72,.5)",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              {spot.userRating != null && !spot.userRatingIsBoys
+                ? "Update your review"
+                : "Leave a Review"}
+            </Link>
+
             {spot.address ? (
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -231,8 +232,16 @@ export default async function SpotPage({
           {/* Boys quote */}
           {spot.boysReviewQuote && (
             <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-4 py-4 mb-3.5">
-              <div className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--crab)] font-semibold mb-2">
-                THE BALTIMORE BOYS' TAKE
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--crab)] font-semibold">
+                  THE BALTIMORE BOYS' TAKE
+                </div>
+                {spot.userRatingIsBoys && (
+                  <BoysTakeControls
+                    spotId={spot.id}
+                    boysScore={spot.boysScore}
+                  />
+                )}
               </div>
               <div
                 className="italic text-[15px] leading-[1.45] text-[var(--ink-2)] pl-3"
@@ -240,6 +249,11 @@ export default async function SpotPage({
               >
                 "{spot.boysReviewQuote}"
               </div>
+              {spot.boysScore != null && (
+                <div className="font-mono text-[10px] tracking-[.06em] text-[var(--ink-3)] mt-2 pl-3">
+                  Boys score · {spot.boysScore.toFixed(1)}
+                </div>
+              )}
             </div>
           )}
 
@@ -256,7 +270,14 @@ export default async function SpotPage({
                 No community reviews yet. Be the first.
               </div>
             ) : (
-              reviews.map((r) => <ReviewItem key={r.id} review={r} />)
+              reviews.map((r) => (
+                <ReviewItem
+                  key={r.id}
+                  review={r}
+                  spotId={spot.id}
+                  currentUserId={me?.id ?? null}
+                />
+              ))
             )}
           </div>
         </div>
