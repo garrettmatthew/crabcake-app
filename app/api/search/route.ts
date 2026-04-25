@@ -71,8 +71,17 @@ export async function GET(req: NextRequest) {
   }));
 
   // Google Places for "Add a new spot" suggestions. Same engine as /submit, so
-  // results are consistent — and Google handles "sabrinas" → "Sabrina's", never
-  // returns highways or roads. We pull 10 then sort food types first.
+  // results are consistent — and Google never returns highways or roads. We
+  // pull 10 then sort food types first.
+  //
+  // Two important params for quality:
+  //   - regionCode: "us" — keeps results in the US so a search for "sabrinas"
+  //     doesn't return a bakery in Mexico.
+  //   - includedType: "restaurant" + strictTypeFiltering: false — biases the
+  //     ranking toward food spots without excluding country clubs/hotels.
+  //
+  // cache:"force-cache" is required for POST fetches to actually use the
+  // `revalidate` window (default for POSTs is no cache).
   let placeResults: PlaceResult[] = [];
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (key) {
@@ -85,7 +94,12 @@ export async function GET(req: NextRequest) {
           "X-Goog-FieldMask":
             "places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.location,places.primaryType,places.types,places.addressComponents",
         },
-        body: JSON.stringify({ textQuery: q, maxResultCount: 10 }),
+        body: JSON.stringify({
+          textQuery: q,
+          maxResultCount: 10,
+          regionCode: "us",
+        }),
+        cache: "force-cache",
         next: { revalidate: 60 * 5 }, // 5-min cache to keep API costs predictable
       });
       if (r.ok) {

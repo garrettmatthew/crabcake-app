@@ -27,7 +27,11 @@ export async function GET(req: NextRequest) {
       "X-Goog-FieldMask":
         "places.id,places.displayName,places.formattedAddress,places.photos,places.rating,places.userRatingCount,places.primaryType,places.types",
     },
-    body: JSON.stringify({ textQuery: q, maxResultCount: 8 }),
+    body: JSON.stringify({
+      textQuery: q,
+      maxResultCount: 8,
+      regionCode: "us",
+    }),
   });
 
   if (!res.ok) {
