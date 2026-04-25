@@ -6,6 +6,12 @@ import SpotScoreRow from "@/components/SpotScoreRow";
 import SpotActions from "@/components/SpotActions";
 import ReviewItem from "@/components/ReviewItem";
 
+// Score circle was rendering stale (showing "—" / "0 reviews") when a fresh
+// rating had just been written. Force dynamic + revalidate=0 so Next never
+// holds a cached server render of this route.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function SpotPage({
   params,
 }: {
