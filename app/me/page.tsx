@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
-import { listMyRatings } from "@/lib/queries";
+import { listMyRatings, listFollowing } from "@/lib/queries";
 import PassportBadges from "@/components/PassportBadges";
 import ScoreCircle, { scoreClass } from "@/components/ScoreCircle";
 import CrabLogo from "@/components/CrabLogo";
@@ -42,6 +42,7 @@ export default async function MePage() {
   }
 
   const ratings = await listMyRatings();
+  const followingList = user ? await listFollowing(user.id) : [];
 
   const initials = (user?.displayName ?? "—")
     .split(/\s+/)
@@ -171,6 +172,61 @@ export default async function MePage() {
             isAdmin={user?.role === "admin"}
           />
         </div>
+
+        {/* Following list */}
+        {followingList.length > 0 && (
+          <div className="px-3.5 mb-4">
+            <h3 className="font-display font-bold text-[17px] tracking-tight mb-2.5 flex justify-between items-baseline">
+              Following
+              <span className="text-xs text-[var(--ink-3)] font-medium">
+                {followingList.length}
+              </span>
+            </h3>
+            <div className="flex gap-2.5 overflow-x-auto -mx-1 px-1 pb-1">
+              {followingList.map((f) => {
+                const fInitials = (f.displayName ?? "—")
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join("")
+                  .toUpperCase();
+                const fGradient =
+                  {
+                    g1: "linear-gradient(135deg, var(--crab), var(--gold))",
+                    g2: "linear-gradient(135deg, #5a89c8, #8a5aa8)",
+                    g3: "linear-gradient(135deg, var(--green), #3b5b7d)",
+                    g4: "linear-gradient(135deg, var(--ink), #403a31)",
+                  }[f.avatarSwatch ?? "g1"] ??
+                  "linear-gradient(135deg, var(--crab), var(--gold))";
+                return (
+                  <Link
+                    key={f.id}
+                    href={`/u/${f.id}`}
+                    className="flex-shrink-0 flex flex-col items-center gap-1.5"
+                    style={{ width: 70 }}
+                  >
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-white text-[16px] font-extrabold overflow-hidden"
+                      style={{
+                        background: f.avatarUrl ? "transparent" : fGradient,
+                        backgroundImage: f.avatarUrl
+                          ? `url(${f.avatarUrl})`
+                          : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    >
+                      {!f.avatarUrl && fInitials}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-tight truncate max-w-full text-center">
+                      {f.displayName ?? "—"}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="px-3.5 mb-2.5">
           <h3 className="font-display font-bold text-[17px] tracking-tight mb-2.5 flex justify-between items-baseline">

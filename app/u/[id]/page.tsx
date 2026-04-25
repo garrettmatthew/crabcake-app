@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getUserProfile, listRatingsByUser } from "@/lib/queries";
+import {
+  getUserProfile,
+  listRatingsByUser,
+  getFollowState,
+} from "@/lib/queries";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import PassportBadges from "@/components/PassportBadges";
+import FollowButton from "@/components/FollowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +22,10 @@ export default async function PublicProfilePage({
   // If you click into your own profile, just send you to /me.
   if (me?.id === id) redirect("/me");
 
-  const [profile, userRatings] = await Promise.all([
+  const [profile, userRatings, follow] = await Promise.all([
     getUserProfile(id),
     listRatingsByUser(id),
+    getFollowState(id),
   ]);
   if (!profile) notFound();
 
@@ -117,11 +123,21 @@ export default async function PublicProfilePage({
               {profile.bio}
             </div>
           )}
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--border)]">
+          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-[var(--border)]">
             <Stat label="Reviews" value={String(userRatings.length)} />
-            <Stat label="Boys" value={String(boysRatings.length)} />
+            <Stat label="Followers" value={String(follow.followerCount)} />
+            <Stat label="Following" value={String(follow.followingCount)} />
             <Stat label="Avg" value={avgScore ?? "—"} />
           </div>
+          {follow.canFollow && (
+            <div className="mt-3 flex justify-center">
+              <FollowButton
+                targetUserId={profile.id}
+                targetName={profile.displayName ?? "this user"}
+                initialFollowing={follow.viewerFollows}
+              />
+            </div>
+          )}
         </div>
 
         {/* Passport */}

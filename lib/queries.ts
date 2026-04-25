@@ -10,6 +10,7 @@ import {
   tags,
   reactions,
   spotScoreHistory,
+  follows,
 } from "./db/schema";
 import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
@@ -360,6 +361,55 @@ export async function listRatingsByUser(userId: string) {
     .innerJoin(spots, eq(spots.id, ratings.spotId))
     .where(and(eq(ratings.userId, userId), eq(spots.isPublished, true)))
     .orderBy(desc(ratings.createdAt));
+}
+
+/** Follower / following counts + whether the current viewer is following. */
+export async function getFollowState(targetUserId: string) {
+  const me = await getCurrentUser();
+  const [followerRows, followingRows] = await Promise.all([
+    db
+      .select({ id: follows.id })
+      .from(follows)
+      .where(eq(follows.followingId, targetUserId)),
+    db
+      .select({ id: follows.id })
+      .from(follows)
+      .where(eq(follows.followerId, targetUserId)),
+  ]);
+  let viewerFollows = false;
+  if (me && me.id !== targetUserId) {
+    const row = await db.query.follows.findFirst({
+      where: and(
+        eq(follows.followerId, me.id),
+        eq(follows.followingId, targetUserId)
+      ),
+    });
+    viewerFollows = Boolean(row);
+  }
+  return {
+    followerCount: followerRows.length,
+    followingCount: followingRows.length,
+    viewerFollows,
+    canFollow: me != null && me.id !== targetUserId,
+  };
+}
+
+/** Users the given user is following — joined with their basic profile. */
+export async function listFollowing(userId: string) {
+  return db
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      homeCity: users.homeCity,
+      avatarSwatch: users.avatarSwatch,
+      avatarUrl: users.avatarUrl,
+      role: users.role,
+      followedAt: follows.createdAt,
+    })
+    .from(follows)
+    .innerJoin(users, eq(users.id, follows.followingId))
+    .where(eq(follows.followerId, userId))
+    .orderBy(desc(follows.createdAt));
 }
 
 /** Public profile fields for a user — only what's safe to expose. */

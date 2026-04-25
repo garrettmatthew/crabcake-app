@@ -13,6 +13,7 @@ import {
   reports,
   reactions,
   spotScoreHistory,
+  follows,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq, ne } from "drizzle-orm";
@@ -282,6 +283,38 @@ export async function updateProfile(input: {
     .where(eq(users.id, user.id));
   revalidatePath(`/me`);
   return { ok: true };
+}
+
+/**
+ * Follow / unfollow another user. Idempotent — calling twice with the
+ * same target toggles. Returns the resulting state so the UI can update
+ * without a second roundtrip.
+ */
+export async function toggleFollow(targetUserId: string) {
+  const user = await requireUser();
+  if (user.id === targetUserId) {
+    throw new Error("You can't follow yourself");
+  }
+  const existing = await db.query.follows.findFirst({
+    where: and(
+      eq(follows.followerId, user.id),
+      eq(follows.followingId, targetUserId)
+    ),
+  });
+  if (existing) {
+    await db.delete(follows).where(eq(follows.id, existing.id));
+    revalidatePath(`/u/${targetUserId}`);
+    revalidatePath(`/me`);
+    return { ok: true, following: false };
+  }
+  await db.insert(follows).values({
+    id: nanoid(),
+    followerId: user.id,
+    followingId: targetUserId,
+  });
+  revalidatePath(`/u/${targetUserId}`);
+  revalidatePath(`/me`);
+  return { ok: true, following: true };
 }
 
 const REACTION_KINDS = new Set(["crab", "fire", "skull"]);

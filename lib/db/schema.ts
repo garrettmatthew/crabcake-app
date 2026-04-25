@@ -143,6 +143,23 @@ export const tags = pgTable("tags", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const follows = pgTable(
+  "follows",
+  {
+    id: text("id").primaryKey(),
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followingId: text("following_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    unique: uniqueIndex("follows_unique").on(t.followerId, t.followingId),
+  })
+);
+
 export const spotScoreHistory = pgTable(
   "spot_score_history",
   {
