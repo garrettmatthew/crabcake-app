@@ -17,6 +17,9 @@ type PlaceResult = {
   placeId: string;
   name: string;
   city: string;
+  street: string | null;
+  venueType: string | null;
+  isFood: boolean;
   latitude: number;
   longitude: number;
   displayName: string;
@@ -143,42 +146,66 @@ export default function SearchBar() {
               <div className="font-mono text-[9.5px] tracking-[.1em] uppercase text-[var(--ink-3)] px-3.5 pt-2.5 pb-1 font-semibold border-t border-[var(--border)]">
                 Add a new spot
               </div>
-              {places.map((p) => (
-                <button
-                  key={p.placeId}
-                  onClick={() => {
-                    // Pre-fill the Google Places search on /submit with whatever
-                    // the user typed — they pick the real place from there and
-                    // it goes straight on the map.
-                    const query = `${p.name} ${p.city}`.trim();
-                    router.push(`/submit?q=${encodeURIComponent(query)}`);
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--panel-2)] text-left"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-[var(--bg-2)] flex items-center justify-center flex-shrink-0 text-[var(--crab)]">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                    >
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-display font-bold text-[13.5px] tracking-tight truncate">
-                      {p.name}
+              {places.map((p) => {
+                // Build the secondary line: street first if we have one, then
+                // city. That's what disambiguates two "Sabrina's Cafe"s in the
+                // same city — one is on Callowhill, the other on Bainbridge.
+                const locationBits = [p.street, p.city].filter(Boolean);
+                const subtitle = locationBits.join(" · ");
+                return (
+                  <button
+                    key={p.placeId}
+                    onClick={() => {
+                      // Use the street address (when we have it) to make the
+                      // Google Places search land on the exact venue. Otherwise
+                      // fall back to name + city.
+                      const query = (
+                        p.street
+                          ? `${p.name} ${p.street} ${p.city}`
+                          : `${p.name} ${p.city}`
+                      ).trim();
+                      router.push(`/submit?q=${encodeURIComponent(query)}`);
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[var(--panel-2)] text-left"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-[var(--bg-2)] flex items-center justify-center flex-shrink-0 text-[var(--crab)]">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                      >
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
                     </div>
-                    <div className="text-[11px] text-[var(--ink-3)] font-medium truncate">
-                      {p.city} · Add to the map
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-display font-bold text-[13.5px] tracking-tight truncate">
+                          {p.name}
+                        </span>
+                        {p.venueType && (
+                          <span
+                            className="font-mono text-[8.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                            style={{
+                              background: "var(--bg-2)",
+                              color: "var(--ink-2)",
+                            }}
+                          >
+                            {p.venueType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-[var(--ink-3)] font-medium truncate">
+                        {subtitle || "Add to the map"}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </>
           )}
         </div>
