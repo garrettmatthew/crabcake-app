@@ -12,7 +12,7 @@ import {
   tags,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -61,6 +61,18 @@ export async function submitRating(input: {
   let asBoys = false;
   if (markAsBoys) {
     asBoys = true;
+    // Only one Boys review per spot. Clear is_boys_review on every other
+    // rating for this spot so an admin reposting doesn't leave the
+    // previous author's rating flagged.
+    await db
+      .update(ratings)
+      .set({ isBoysReview: false })
+      .where(
+        and(
+          eq(ratings.spotId, input.spotId),
+          ne(ratings.userId, user.id)
+        )
+      );
     // Derive prep from tags if present
     const tagSet = new Set(input.tags ?? []);
     const prep = tagSet.has("Broiled")
@@ -137,6 +149,36 @@ export async function deleteRating(spotId: string) {
   revalidatePath(`/me`);
   revalidatePath(`/`);
   return { ok: true, deleted: true };
+}
+
+/**
+ * Delete the official Boys review for a spot. Admin-only. Works
+ * regardless of which Boy authored it — the Boys collectively own the
+ * score, so any of them can clear it. Removes the rating row and
+ * clears the spot's boys_* fields.
+ */
+export async function deleteBoysReviewForSpot(spotId: string) {
+  await requireAdmin();
+  const existing = await db.query.ratings.findFirst({
+    where: and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, true)),
+  });
+  if (existing) {
+    await db.delete(ratings).where(eq(ratings.id, existing.id));
+  }
+  await db
+    .update(spots)
+    .set({
+      boysScore: null,
+      boysReviewQuote: null,
+      boysReviewPrep: null,
+      boysReviewDate: null,
+    })
+    .where(eq(spots.id, spotId));
+
+  revalidatePath(`/spot/${spotId}`);
+  revalidatePath("/lists");
+  revalidatePath("/");
+  return { ok: true };
 }
 
 export async function toggleBookmark(spotId: string) {

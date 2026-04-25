@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { scoreClass } from "./ScoreCircle";
 import PhotoLightbox from "./PhotoLightbox";
 import OwnReviewControls from "./OwnReviewControls";
@@ -46,7 +47,10 @@ export default function ReviewItem({
   return (
     <div className="border-t border-[var(--border)] py-2.5 first:border-t-0 first:pt-0">
       <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-2 min-w-0">
+        <Link
+          href={isOwn ? "/me" : `/u/${review.userId}`}
+          className="flex items-center gap-2 min-w-0 group"
+        >
           <div
             className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
             style={{ background: gradient }}
@@ -55,7 +59,7 @@ export default function ReviewItem({
           </div>
           <div className="min-w-0">
             <div className="text-[12.5px] font-semibold flex items-center gap-1.5">
-              <span className="truncate">
+              <span className="truncate group-hover:underline underline-offset-2 decoration-dotted">
                 {review.userName ?? "A Baltimore local"}
               </span>
               {isOwn && (
@@ -72,7 +76,7 @@ export default function ReviewItem({
             </div>
             <div className="font-mono text-[10px] text-[var(--ink-3)]">{dateStr}</div>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-2 flex-shrink-0">
           {isOwn && spotId && (
             <OwnReviewControls spotId={spotId} />

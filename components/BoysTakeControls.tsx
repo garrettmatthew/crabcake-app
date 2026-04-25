@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteRating } from "@/lib/actions";
+import { deleteBoysReviewForSpot } from "@/lib/actions";
 import { showToast } from "./Toast";
 
 /**
@@ -27,7 +27,7 @@ export default function BoysTakeControls({
   function onDelete() {
     startTransition(async () => {
       try {
-        const res = await deleteRating(spotId);
+        const res = await deleteBoysReviewForSpot(spotId);
         if (res.ok) {
           showToast("Boys review deleted");
           router.refresh();

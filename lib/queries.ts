@@ -219,12 +219,19 @@ export async function listCommunityReviews(
 export async function listMyRatings() {
   const user = await getCurrentUser();
   if (!user) return [];
+  return listRatingsByUser(user.id);
+}
+
+/** All published ratings authored by a user, joined with spot metadata. */
+export async function listRatingsByUser(userId: string) {
   return db
     .select({
       id: ratings.id,
       score: ratings.score,
       note: ratings.note,
       tags: ratings.tags,
+      isBoysReview: ratings.isBoysReview,
+      photoUrl: ratings.photoUrl,
       createdAt: ratings.createdAt,
       spotId: spots.id,
       spotName: spots.name,
@@ -234,8 +241,24 @@ export async function listMyRatings() {
     })
     .from(ratings)
     .innerJoin(spots, eq(spots.id, ratings.spotId))
-    .where(eq(ratings.userId, user.id))
+    .where(and(eq(ratings.userId, userId), eq(spots.isPublished, true)))
     .orderBy(desc(ratings.createdAt));
+}
+
+/** Public profile fields for a user — only what's safe to expose. */
+export async function getUserProfile(userId: string) {
+  const row = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    homeCity: row.homeCity,
+    bio: row.bio,
+    avatarSwatch: row.avatarSwatch,
+    role: row.role,
+  };
 }
 
 export async function listPendingSubmissions() {

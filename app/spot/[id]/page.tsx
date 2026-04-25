@@ -236,7 +236,7 @@ export default async function SpotPage({
                 <div className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--crab)] font-semibold">
                   THE BALTIMORE BOYS' TAKE
                 </div>
-                {spot.userRatingIsBoys && (
+                {me?.role === "admin" && (
                   <BoysTakeControls
                     spotId={spot.id}
                     boysScore={spot.boysScore}
