@@ -111,12 +111,7 @@ export default async function SpotPage({
               {spot.establishedYear ? `EST. ${spot.establishedYear}` : "ENTRY"}
             </div>
             {spot.venueType && (
-              <span
-                className="font-mono text-[9.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded"
-                style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}
-              >
-                {spot.venueType}
-              </span>
+              <span className="chip">{spot.venueType}</span>
             )}
           </div>
           <h2 className="font-display font-extrabold text-[28px] tracking-tight leading-none m-0 mb-1.5">

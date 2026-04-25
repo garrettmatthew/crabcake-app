@@ -75,17 +75,7 @@ export default function ReviewItem({
               <span className="truncate group-hover:underline underline-offset-2 decoration-dotted">
                 {review.userName ?? "A Baltimore local"}
               </span>
-              {isOwn && (
-                <span
-                  className="font-mono text-[8.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
-                  style={{
-                    background: "var(--gold-soft, rgba(228,178,72,.18))",
-                    color: "var(--ink-2)",
-                  }}
-                >
-                  You
-                </span>
-              )}
+              {isOwn && <span className="chip chip-soft">You</span>}
             </div>
             <div className="font-mono text-[10px] text-[var(--ink-3)]">{dateStr}</div>
           </div>

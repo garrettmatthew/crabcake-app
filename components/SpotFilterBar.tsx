@@ -79,16 +79,7 @@ export default function SpotFilterBar({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="h-7 px-2.5 rounded-full font-mono text-[10.5px] tracking-[.04em] uppercase font-bold flex items-center gap-1 flex-shrink-0"
-          style={{
-            background:
-              activeFilterCount > 0 ? "var(--crab)" : "var(--panel)",
-            color: activeFilterCount > 0 ? "#fff" : "var(--ink-2)",
-            border:
-              activeFilterCount > 0
-                ? "1px solid var(--crab)"
-                : "1px solid var(--border)",
-          }}
+          className={`pill ${activeFilterCount > 0 ? "pill-brand" : ""}`}
         >
           <svg
             width="11"
@@ -140,14 +131,7 @@ export default function SpotFilterBar({
                     type="button"
                     disabled={disabled}
                     onClick={() => onSortChange(s.id)}
-                    className="h-7 px-2.5 rounded-full text-[11.5px] font-bold disabled:opacity-40"
-                    style={{
-                      background: active ? "var(--ink)" : "var(--panel)",
-                      color: active ? "var(--bg)" : "var(--ink-2)",
-                      border: active
-                        ? "1px solid var(--ink)"
-                        : "1px solid var(--border)",
-                    }}
+                    className={`pill ${active ? "pill-ink" : ""}`}
                   >
                     {s.label}
                   </button>
@@ -223,12 +207,7 @@ function Pill({
     <button
       type="button"
       onClick={onClick}
-      className="h-7 px-2.5 rounded-full text-[11.5px] font-bold"
-      style={{
-        background: active ? "var(--crab)" : "var(--panel)",
-        color: active ? "#fff" : "var(--ink-2)",
-        border: active ? "1px solid var(--crab)" : "1px solid var(--border)",
-      }}
+      className={`pill ${active ? "pill-brand" : ""}`}
     >
       {label}
     </button>

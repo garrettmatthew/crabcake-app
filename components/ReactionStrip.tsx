@@ -68,31 +68,14 @@ export default function ReactionStrip({
             onClick={() => onToggle(kind)}
             aria-label={label}
             aria-pressed={active}
-            className="h-7 rounded-full text-[12px] font-bold flex items-center justify-center"
-            style={{
-              minWidth: 36,
-              padding: hasCount ? "0 9px" : "0 8px",
-              gap: 4,
-              background: active
-                ? "var(--gold-soft, rgba(228,178,72,.20))"
-                : "var(--panel)",
-              border: active
-                ? "1px solid var(--gold)"
-                : "1px solid var(--border)",
-              color: "var(--ink)",
-              opacity: !active && !hasCount ? 0.7 : 1,
-              transition: "opacity .15s, background .15s",
-            }}
+            className={`pill ${active ? "pill-on" : ""} ${
+              !active && !hasCount ? "pill-muted" : ""
+            }`}
+            style={{ minWidth: 38 }}
           >
             <span style={{ fontSize: 13, lineHeight: 1 }}>{emoji}</span>
             {hasCount && (
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontVariantNumeric: "tabular-nums",
-                  color: active ? "var(--ink)" : "var(--ink-2)",
-                }}
-              >
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
                 {count}
               </span>
             )}

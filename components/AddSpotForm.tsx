@@ -176,17 +176,7 @@ export default function AddSpotForm({
                     {r.address}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    {r.venueType && (
-                      <span
-                        className="font-mono text-[9px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded"
-                        style={{
-                          background: "var(--bg-2)",
-                          color: "var(--ink-2)",
-                        }}
-                      >
-                        {r.venueType}
-                      </span>
-                    )}
+                    {r.venueType && <span className="chip">{r.venueType}</span>}
                     {r.rating != null && (
                       <span className="text-[11px] flex items-center gap-1 font-semibold">
                         <svg

@@ -210,15 +210,7 @@ export default function SearchBar() {
                           {p.name}
                         </span>
                         {p.venueType && (
-                          <span
-                            className="font-mono text-[8.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
-                            style={{
-                              background: "var(--bg-2)",
-                              color: "var(--ink-2)",
-                            }}
-                          >
-                            {p.venueType}
-                          </span>
+                          <span className="chip">{p.venueType}</span>
                         )}
                       </div>
                       <div className="text-[11px] text-[var(--ink-3)] font-medium truncate">

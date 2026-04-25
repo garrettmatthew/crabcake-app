@@ -103,12 +103,7 @@ export default async function PublicProfilePage({
                   {profile.displayName ?? "A Baltimore local"}
                 </div>
                 {profile.role === "admin" && (
-                  <span
-                    className="font-mono text-[9px] tracking-[.08em] uppercase font-bold px-1.5 py-0.5 rounded"
-                    style={{ background: "var(--ink)", color: "#fff" }}
-                  >
-                    Baltimore Boy
-                  </span>
+                  <span className="chip chip-ink">Baltimore Boy</span>
                 )}
               </div>
               {profile.homeCity && (
@@ -194,12 +189,7 @@ export default async function PublicProfilePage({
                           {r.spotName}
                         </span>
                         {r.isBoysReview && (
-                          <span
-                            className="font-mono text-[8.5px] tracking-[.06em] uppercase font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
-                            style={{ background: "var(--crab)", color: "#fff" }}
-                          >
-                            Boys
-                          </span>
+                          <span className="chip chip-brand">Boys</span>
                         )}
                       </div>
                       <div className="text-[11.5px] text-[var(--ink-3)] font-medium">
