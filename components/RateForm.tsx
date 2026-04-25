@@ -21,14 +21,24 @@ export default function RateForm({
   const [spotId, setSpotId] = useState(initialSpot.id);
   const spot = spots.find((s) => s.id === spotId) ?? initialSpot;
 
-  const [score, setScore] = useState(spot.userRating ?? 8.4);
+  // Initialize at the user's existing rating if they're editing, otherwise
+  // a neutral middle (5.0). Old default of 8.4 caused most reviews to post
+  // as 8.4 because users didn't realize the slider was pre-set high.
+  const [score, setScore] = useState(spot.userRating ?? 5.0);
+  const [scoreTouched, setScoreTouched] = useState(spot.userRating != null);
   const [note, setNote] = useState(spot.userNote ?? "");
   const [tags, setTags] = useState<string[]>(spot.userTags ?? []);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [asBoys, setAsBoys] = useState(isAdmin); // Default ON for admins
+  // Toggle starts OFF — admins have to explicitly opt in to post as the
+  // official Baltimore Boys review for a spot. Default ON caused every
+  // admin review to silently overwrite the spot's Boys score.
+  const [asBoys, setAsBoys] = useState(false);
   const [pending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
+  // Capture what *actually* got persisted so the success screen reflects
+  // reality, not the state of the toggle at submit time.
+  const [postedAsBoys, setPostedAsBoys] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +46,8 @@ export default function RateForm({
   useEffect(() => {
     const s = spots.find((x) => x.id === spotId);
     if (s) {
-      setScore(s.userRating ?? 8.4);
+      setScore(s.userRating ?? 5.0);
+      setScoreTouched(s.userRating != null);
       setNote(s.userNote ?? "");
       setTags(s.userTags ?? []);
     }
@@ -52,6 +63,7 @@ export default function RateForm({
     const pct = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
     const s = Math.round(pct * 100) / 10;
     setScore(s);
+    setScoreTouched(true);
     if (Math.floor(s * 10) !== Math.floor(lastScoreRef.current * 10)) {
       if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(3);
       lastScoreRef.current = s;
@@ -99,7 +111,7 @@ export default function RateForm({
 
   function onSubmit() {
     startTransition(async () => {
-      await submitRating({
+      const result = await submitRating({
         spotId,
         score,
         note: note || undefined,
@@ -107,6 +119,7 @@ export default function RateForm({
         photoUrl: photoUrl || undefined,
         asBoys: isAdmin && asBoys,
       });
+      setPostedAsBoys(Boolean(result?.asBoys));
       setSuccess(true);
       if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([15, 50, 30]);
       // Force router to re-fetch server data (community score, reviews list, etc.)
@@ -292,12 +305,19 @@ export default function RateForm({
         <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-4 pt-6 pb-4 mb-2.5 text-center">
           <div
             className="font-display font-extrabold text-[82px] leading-none tracking-[-.05em] mb-1 transition-colors"
-            style={{ color: scoreColor }}
+            style={{
+              color: scoreTouched ? scoreColor : "var(--ink-3)",
+              opacity: scoreTouched ? 1 : 0.45,
+            }}
           >
-            {score.toFixed(1)}
+            {scoreTouched ? score.toFixed(1) : "—"}
           </div>
           <div className="font-mono text-[10px] tracking-[.06em] text-[var(--ink-3)] uppercase font-medium mt-1 mb-5">
-            Your score · drag to change
+            {scoreTouched
+              ? spot.userRating != null
+                ? "Editing your rating · drag to change"
+                : "Your score · drag to change"
+              : "Drag below to rate"}
           </div>
           <div
             ref={trackRef}
@@ -455,10 +475,16 @@ export default function RateForm({
 
         <button
           onClick={onSubmit}
-          disabled={pending || uploading}
+          disabled={pending || uploading || !scoreTouched}
           className="h-[52px] w-full bg-[var(--crab)] text-white rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 mt-2 disabled:opacity-70"
         >
-          {pending ? "Posting…" : "Post rating →"}
+          {pending
+            ? "Posting…"
+            : !scoreTouched
+              ? "Drag the dial to rate"
+              : spot.userRating != null
+                ? "Update rating →"
+                : "Post rating →"}
         </button>
       </div>
 
@@ -472,7 +498,7 @@ export default function RateForm({
           🦀
         </div>
         <div className="font-display font-extrabold text-[34px] tracking-tight leading-none mb-2.5">
-          {isAdmin && asBoys ? (
+          {postedAsBoys ? (
             <>
               Official Boys<br />review posted.
             </>
@@ -483,7 +509,7 @@ export default function RateForm({
           )}
         </div>
         <div className="font-sans text-[15px] opacity-90 max-w-72">
-          {isAdmin && asBoys
+          {postedAsBoys
             ? "This is now the official Baltimore Boys score for this spot."
             : "Your rating is live and moving the crowd score."}
         </div>

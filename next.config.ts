@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   experimental: {
     staleTimes: {
       dynamic: 0,
-      static: 0,
+      static: 30, // Next 16 minimum; static pages don't have the freshness issue anyway
     },
   },
   async redirects() {
