@@ -14,7 +14,48 @@ export type EnrichedPlace = {
   googleRating: number | null;
   googleRatingCount: number | null;
   neighborhood: string | null;
+  venueType: string | null;
 };
+
+/**
+ * Map Google's primary type tokens to friendly labels.
+ * Returns the most relevant non-generic type from a place's types array.
+ */
+function deriveVenueType(types: string[] | undefined): string | null {
+  if (!types || types.length === 0) return null;
+  // Priority order — match the most specific/interesting type first
+  const priority: Array<[string, string]> = [
+    ["country_club", "Country Club"],
+    ["golf_course", "Golf Club"],
+    ["seafood_restaurant", "Seafood"],
+    ["oyster_bar", "Oyster Bar"],
+    ["fish_market", "Fish Market"],
+    ["fine_dining_restaurant", "Fine Dining"],
+    ["steak_house", "Steakhouse"],
+    ["pub", "Pub"],
+    ["bar_and_grill", "Bar & Grill"],
+    ["sports_bar", "Sports Bar"],
+    ["bar", "Bar"],
+    ["diner", "Diner"],
+    ["fast_food_restaurant", "Fast Food"],
+    ["catering", "Catering"],
+    ["caterer", "Caterer"],
+    ["food_court", "Food Court"],
+    ["food_hall", "Food Hall"],
+    ["market", "Market"],
+    ["hotel", "Hotel"],
+    ["inn", "Inn"],
+    ["resort_hotel", "Resort"],
+    ["club", "Club"],
+    ["banquet_hall", "Banquet Hall"],
+    ["restaurant", "Restaurant"],
+    ["cafe", "Cafe"],
+  ];
+  for (const [token, label] of priority) {
+    if (types.includes(token)) return label;
+  }
+  return null;
+}
 
 type PlacesV1TextResp = {
   places?: Array<{ id: string; displayName?: { text?: string } }>;
@@ -36,6 +77,8 @@ type PlacesV1Details = {
     shortText: string;
     types: string[];
   }>;
+  types?: string[];
+  primaryType?: string;
 };
 
 function priceLevelToNumber(level: string | undefined): number | null {
@@ -103,6 +146,8 @@ export async function enrichFromGoogle(
     "rating",
     "userRatingCount",
     "addressComponents",
+    "types",
+    "primaryType",
   ].join(",");
 
   const detailsRes = await fetch(
@@ -163,6 +208,12 @@ export async function enrichFromGoogle(
     hoursJson = JSON.stringify(d.regularOpeningHours.weekdayDescriptions);
   }
 
+  // Combine primaryType + types for derivation
+  const allTypes = [
+    ...(d.primaryType ? [d.primaryType] : []),
+    ...(d.types ?? []),
+  ];
+
   return {
     googlePlaceId: d.id,
     address: d.formattedAddress ?? null,
@@ -174,5 +225,6 @@ export async function enrichFromGoogle(
     googleRating: d.rating ?? null,
     googleRatingCount: d.userRatingCount ?? null,
     neighborhood,
+    venueType: deriveVenueType(allTypes),
   };
 }

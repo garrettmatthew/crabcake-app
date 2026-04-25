@@ -364,11 +364,11 @@ function slugifyShort(s: string) {
 }
 
 /**
- * Admin-only: add a spot directly from a Google Places ID.
- * Skips the submission queue and publishes immediately.
+ * Add a spot directly from a Google Places ID.
+ * Available to any signed-in user. Publishes immediately.
  */
-export async function adminAddSpotByPlaceId(placeId: string) {
-  await requireAdmin();
+export async function addSpotByPlaceId(placeId: string) {
+  const user = await requireUser();
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) throw new Error("GOOGLE_PLACES_API_KEY not set");
 
@@ -382,7 +382,6 @@ export async function adminAddSpotByPlaceId(placeId: string) {
     return { ok: true, spotId: existing.id, alreadyExisted: true };
   }
 
-  // Fetch enough details to create the row
   const detailsRes = await fetch(
     `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
     {
@@ -443,9 +442,10 @@ export async function adminAddSpotByPlaceId(placeId: string) {
     longitude: lng,
     googlePlaceId: d.id,
     isPublished: true,
+    createdBy: user.id,
   });
 
-  // Immediately enrich with photo + phone + hours
+  // Immediately enrich with photo + phone + hours + venue type
   try {
     const { enrichFromGoogle } = await import("./google-places");
     const enriched = await enrichFromGoogle(candidate, name, city);
@@ -464,6 +464,7 @@ export async function adminAddSpotByPlaceId(placeId: string) {
             enriched.googleRating == null ? null : enriched.googleRating.toString(),
           googleRatingCount: enriched.googleRatingCount,
           neighborhood: enriched.neighborhood,
+          venueType: enriched.venueType,
         })
         .where(eq(spots.id, candidate));
     }
@@ -475,6 +476,9 @@ export async function adminAddSpotByPlaceId(placeId: string) {
   revalidatePath("/admin/spots");
   return { ok: true, spotId: candidate };
 }
+
+// Backward-compat alias used by existing admin form
+export const adminAddSpotByPlaceId = addSpotByPlaceId;
 
 export async function enrichSpotFromGoogle(spotId: string) {
   await requireAdmin();
@@ -530,6 +534,7 @@ export async function enrichAllSpotsFromGoogle() {
             enriched.googleRating == null ? null : enriched.googleRating.toString(),
           googleRatingCount: enriched.googleRatingCount,
           neighborhood: enriched.neighborhood ?? spot.neighborhood,
+          venueType: enriched.venueType ?? spot.venueType,
         })
         .where(eq(spots.id, spot.id));
       results.push({ id: spot.id, name: spot.name, ok: true });

@@ -51,6 +51,8 @@ export const spots = pgTable("spots", {
   hoursJson: text("hours_json"),
   googleRating: numeric("google_rating", { precision: 2, scale: 1 }),
   googleRatingCount: integer("google_rating_count"),
+  venueType: text("venue_type"),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

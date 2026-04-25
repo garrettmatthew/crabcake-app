@@ -1,30 +1,15 @@
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
-import SubmitForm from "@/components/SubmitForm";
+import AddSpotForm from "@/components/AddSpotForm";
 import { redirect } from "next/navigation";
 
 export default async function SubmitPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    name?: string;
-    city?: string;
-    lat?: string;
-    lng?: string;
-    addr?: string;
-  }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const user = await ensureDemoUser();
   if (hasClerk && !user) redirect("/sign-in?redirect_url=/submit");
   const sp = await searchParams;
-  return (
-    <SubmitForm
-      initial={{
-        name: sp.name ?? "",
-        city: sp.city ?? "",
-        address: sp.addr ?? "",
-        latitude: sp.lat ? parseFloat(sp.lat) : undefined,
-        longitude: sp.lng ? parseFloat(sp.lng) : undefined,
-      }}
-    />
-  );
+  const hasKey = Boolean(process.env.GOOGLE_PLACES_API_KEY);
+  return <AddSpotForm initialQuery={sp.q ?? ""} hasKey={hasKey} />;
 }
