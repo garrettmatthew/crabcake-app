@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getUserProfile, listRatingsByUser } from "@/lib/queries";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import PassportBadges from "@/components/PassportBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,22 @@ export default async function PublicProfilePage({
             <Stat label="Avg" value={avgScore ?? "—"} />
           </div>
         </div>
+
+        {/* Passport */}
+        <PassportBadges
+          ratings={userRatings}
+          spotsById={Object.fromEntries(
+            userRatings.map((r) => [
+              r.spotId,
+              {
+                id: r.spotId,
+                city: r.spotCity,
+                venueType: r.spotVenueType ?? null,
+              },
+            ])
+          )}
+          isAdmin={profile.role === "admin"}
+        />
 
         {/* Reviews list */}
         {userRatings.length === 0 ? (

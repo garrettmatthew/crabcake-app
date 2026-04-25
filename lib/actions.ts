@@ -11,6 +11,7 @@ import {
   collectionSpots,
   tags,
   reports,
+  reactions,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq, ne } from "drizzle-orm";
@@ -242,6 +243,42 @@ export async function updateProfile(input: {
     .where(eq(users.id, user.id));
   revalidatePath(`/me`);
   return { ok: true };
+}
+
+const REACTION_KINDS = new Set(["crab", "fire", "skull"]);
+
+/**
+ * Toggle a reaction (crab / fire / skull) on a review. Adds it if the
+ * user hasn't reacted with that kind yet, removes it if they have.
+ * Returns the resulting boolean so the client can flip its UI without
+ * a second roundtrip.
+ */
+export async function toggleReaction(input: {
+  ratingId: string;
+  kind: string;
+}) {
+  const user = await requireUser();
+  if (!REACTION_KINDS.has(input.kind)) {
+    throw new Error("Unknown reaction");
+  }
+  const existing = await db.query.reactions.findFirst({
+    where: and(
+      eq(reactions.ratingId, input.ratingId),
+      eq(reactions.userId, user.id),
+      eq(reactions.kind, input.kind)
+    ),
+  });
+  if (existing) {
+    await db.delete(reactions).where(eq(reactions.id, existing.id));
+    return { ok: true, reacted: false };
+  }
+  await db.insert(reactions).values({
+    id: nanoid(),
+    ratingId: input.ratingId,
+    userId: user.id,
+    kind: input.kind,
+  });
+  return { ok: true, reacted: true };
 }
 
 /**

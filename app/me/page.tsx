@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
 import { listMyRatings } from "@/lib/queries";
+import PassportBadges from "@/components/PassportBadges";
 import ScoreCircle, { scoreClass } from "@/components/ScoreCircle";
 import CrabLogo from "@/components/CrabLogo";
 
@@ -145,6 +146,30 @@ export default async function MePage() {
             <Stat n={top} l="Top" />
             <Stat n={0} l="Saved" asLink={true} />
           </div>
+        </div>
+
+        {/* Passport badges */}
+        <div className="px-3.5">
+          <PassportBadges
+            ratings={ratings.map((r) => ({
+              spotId: r.spotId,
+              spotCity: r.spotCity,
+              isBoysReview: r.isBoysReview ?? false,
+              score: r.score,
+              createdAt: r.createdAt,
+            }))}
+            spotsById={Object.fromEntries(
+              ratings.map((r) => [
+                r.spotId,
+                {
+                  id: r.spotId,
+                  city: r.spotCity,
+                  venueType: r.spotVenueType ?? null,
+                },
+              ])
+            )}
+            isAdmin={user?.role === "admin"}
+          />
         </div>
 
         <div className="px-3.5 mb-2.5">

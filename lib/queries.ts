@@ -8,8 +8,9 @@ import {
   collections,
   collectionSpots,
   tags,
+  reactions,
 } from "./db/schema";
-import { eq, desc, sql, and, asc } from "drizzle-orm";
+import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
 
 export type SpotWithStats = {
@@ -229,7 +230,8 @@ export async function listCommunityReviews(
   spotId: string,
   limit = 12
 ) {
-  return db
+  const me = await getCurrentUser();
+  const reviewRows = await db
     .select({
       id: ratings.id,
       score: ratings.score,
@@ -247,6 +249,34 @@ export async function listCommunityReviews(
     .where(and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, false)))
     .orderBy(desc(ratings.createdAt))
     .limit(limit);
+
+  const ratingIds = reviewRows.map((r) => r.id);
+  const reactionRows =
+    ratingIds.length === 0
+      ? []
+      : await db
+          .select({
+            ratingId: reactions.ratingId,
+            kind: reactions.kind,
+            userId: reactions.userId,
+          })
+          .from(reactions)
+          .where(inArray(reactions.ratingId, ratingIds));
+
+  return reviewRows.map((r) => {
+    const mine = new Set<string>();
+    const counts: Record<string, number> = {};
+    for (const rx of reactionRows) {
+      if (rx.ratingId !== r.id) continue;
+      counts[rx.kind] = (counts[rx.kind] ?? 0) + 1;
+      if (me && rx.userId === me.id) mine.add(rx.kind);
+    }
+    return {
+      ...r,
+      reactionCounts: counts,
+      myReactions: Array.from(mine),
+    };
+  });
 }
 
 export async function listMyRatings() {
@@ -301,6 +331,7 @@ export async function listRatingsByUser(userId: string) {
       spotName: spots.name,
       spotCity: spots.city,
       spotPhoto: spots.photoUrl,
+      spotVenueType: spots.venueType,
       boysScore: spots.boysScore,
     })
     .from(ratings)

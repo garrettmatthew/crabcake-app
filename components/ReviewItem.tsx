@@ -3,6 +3,7 @@ import { scoreClass } from "./ScoreCircle";
 import PhotoLightbox from "./PhotoLightbox";
 import OwnReviewControls from "./OwnReviewControls";
 import ShareButton from "./ShareButton";
+import ReactionStrip from "./ReactionStrip";
 
 type Review = {
   id: string;
@@ -16,6 +17,8 @@ type Review = {
   userName: string | null;
   avatarSwatch: string | null;
   avatarUrl?: string | null;
+  reactionCounts?: Record<string, number>;
+  myReactions?: string[];
 };
 
 export default function ReviewItem({
@@ -117,6 +120,13 @@ export default function ReviewItem({
       </div>
       {review.note && (
         <div className="text-[13px] text-[var(--ink-2)] leading-[1.4]">{review.note}</div>
+      )}
+      {currentUserId != null && (
+        <ReactionStrip
+          ratingId={review.id}
+          initialCounts={review.reactionCounts ?? {}}
+          initialMine={review.myReactions ?? []}
+        />
       )}
       {(() => {
         // Prefer the new array column. Fall back to the legacy single-photo
