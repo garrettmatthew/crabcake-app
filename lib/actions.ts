@@ -10,6 +10,7 @@ import {
   collections,
   collectionSpots,
   tags,
+  reports,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
 import { and, eq, ne } from "drizzle-orm";
@@ -240,6 +241,58 @@ export async function updateProfile(input: {
     })
     .where(eq(users.id, user.id));
   revalidatePath(`/me`);
+  return { ok: true };
+}
+
+/**
+ * User flags a spot. Auth required so we can credit the reporter.
+ * Reasons are short tokens — the UI maps them to friendly labels.
+ */
+export async function reportSpot(input: {
+  spotId: string;
+  reason: string;
+  note?: string;
+}) {
+  const user = await requireUser();
+  const reason = input.reason.trim().slice(0, 40);
+  if (!reason) throw new Error("Reason required");
+  await db.insert(reports).values({
+    id: nanoid(),
+    spotId: input.spotId,
+    userId: user.id,
+    reason,
+    note: input.note?.slice(0, 500) ?? null,
+    status: "pending",
+  });
+  revalidatePath("/admin/reports");
+  return { ok: true };
+}
+
+/** Dismiss a report without doing anything to the spot. */
+export async function dismissReport(reportId: string) {
+  await requireAdmin();
+  await db
+    .update(reports)
+    .set({ status: "dismissed" })
+    .where(eq(reports.id, reportId));
+  revalidatePath("/admin/reports");
+  return { ok: true };
+}
+
+/**
+ * Admin: unpublish a spot (hide from map and lists). Used in response to a
+ * report. Marks any pending reports for that spot as actioned.
+ */
+export async function unpublishSpot(spotId: string) {
+  await requireAdmin();
+  await db.update(spots).set({ isPublished: false }).where(eq(spots.id, spotId));
+  await db
+    .update(reports)
+    .set({ status: "actioned" })
+    .where(and(eq(reports.spotId, spotId), eq(reports.status, "pending")));
+  revalidatePath("/admin/reports");
+  revalidatePath("/admin/spots");
+  revalidatePath("/");
   return { ok: true };
 }
 

@@ -143,6 +143,24 @@ export const tags = pgTable("tags", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const reports = pgTable(
+  "reports",
+  {
+    id: text("id").primaryKey(),
+    spotId: text("spot_id")
+      .notNull()
+      .references(() => spots.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    reason: text("reason").notNull(),
+    note: text("note"),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    statusIdx: index("reports_status_idx").on(t.status),
+  })
+);
+
 export const submissions = pgTable("submissions", {
   id: text("id").primaryKey(),
   userId: text("user_id")

@@ -6,6 +6,7 @@ import SpotScoreRow from "@/components/SpotScoreRow";
 import SpotActions from "@/components/SpotActions";
 import ReviewItem from "@/components/ReviewItem";
 import BoysTakeControls from "@/components/BoysTakeControls";
+import ReportSpotButton from "@/components/ReportSpotButton";
 import { getCurrentUser } from "@/lib/auth";
 
 // Score circle was rendering stale (showing "—" / "0 reviews") when a fresh
@@ -290,6 +291,13 @@ export default async function SpotPage({
               ))
             )}
           </div>
+
+          {/* Report link — discreet, signed-in users only */}
+          {me && (
+            <div className="text-center mt-4 mb-2">
+              <ReportSpotButton spotId={spot.id} />
+            </div>
+          )}
         </div>
       </div>
     </div>

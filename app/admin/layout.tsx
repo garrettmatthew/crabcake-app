@@ -52,6 +52,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         >
           Users
         </Link>
+        <Link
+          href="/admin/reports"
+          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
+        >
+          Reports
+        </Link>
       </div>
       <div className="flex-1 overflow-y-auto pb-24">{children}</div>
     </div>
