@@ -498,6 +498,37 @@ export async function getUserProfile(userId: string) {
   };
 }
 
+/** Admin firehose — every rating across every spot, joined with spot
+ *  + user metadata, newest first. Includes drafts + Boys + community. */
+export async function listAllRatingsForAdmin(limit = 200) {
+  return db
+    .select({
+      id: ratings.id,
+      score: ratings.score,
+      note: ratings.note,
+      tags: ratings.tags,
+      photoUrl: ratings.photoUrl,
+      photoUrls: ratings.photoUrls,
+      isBoysReview: ratings.isBoysReview,
+      createdAt: ratings.createdAt,
+      updatedAt: ratings.updatedAt,
+      userId: ratings.userId,
+      userName: users.displayName,
+      userEmail: users.email,
+      userRole: users.role,
+      spotId: spots.id,
+      spotName: spots.name,
+      spotCity: spots.city,
+      spotPhoto: spots.photoUrl,
+      spotPublished: spots.isPublished,
+    })
+    .from(ratings)
+    .leftJoin(users, eq(users.id, ratings.userId))
+    .leftJoin(spots, eq(spots.id, ratings.spotId))
+    .orderBy(desc(ratings.createdAt))
+    .limit(limit);
+}
+
 export async function listPendingSubmissions() {
   return db
     .select({
