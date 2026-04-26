@@ -9,8 +9,13 @@ import { useEffect, useRef, useState } from "react";
  * they want. On confirm, the visible crop is rendered to a canvas and
  * returned as a JPEG Blob.
  *
- * Self-contained — no external dependency. Built directly on
- * pointer events + a 2D canvas.
+ * Handles EXIF orientation: iPhone photos are stored landscape with a
+ * rotate flag. Canvas doesn't auto-rotate, so we use createImageBitmap
+ * with imageOrientation: 'from-image' to get a properly-oriented bitmap
+ * before drawing.
+ *
+ * Self-contained — no external dependency. Built on pointer events and
+ * a 2D canvas.
  */
 export default function PhotoCropper({
   file,
@@ -23,6 +28,8 @@ export default function PhotoCropper({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  // Bitmap with EXIF orientation already applied — used for canvas crop.
+  const bitmapRef = useRef<ImageBitmap | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
@@ -43,7 +50,30 @@ export default function PhotoCropper({
   useEffect(() => {
     const url = URL.createObjectURL(file);
     setImgUrl(url);
-    return () => URL.revokeObjectURL(url);
+    // Build an oriented ImageBitmap in parallel — used by canvas crop.
+    let cancelled = false;
+    if (typeof createImageBitmap === "function") {
+      createImageBitmap(file, { imageOrientation: "from-image" })
+        .then((bm) => {
+          if (cancelled) {
+            bm.close?.();
+            return;
+          }
+          bitmapRef.current = bm;
+          // Override naturalSize from the oriented bitmap so cropper math
+          // matches what the user actually sees.
+          setNaturalSize({ w: bm.width, h: bm.height });
+        })
+        .catch(() => {
+          /* fall back to the <img> tag's naturalSize on load */
+        });
+    }
+    return () => {
+      cancelled = true;
+      URL.revokeObjectURL(url);
+      bitmapRef.current?.close?.();
+      bitmapRef.current = null;
+    };
   }, [file]);
 
   useEffect(() => {
@@ -157,34 +187,51 @@ export default function PhotoCropper({
   }
 
   async function confirm() {
-    const img = imgRef.current;
-    if (!img || !naturalSize.w) return;
+    if (!naturalSize.w) return;
 
-    // Compute the source rectangle in image-natural pixels that the
-    // viewport currently shows.
-    // Center of the image (in viewport coords) is (viewport/2 + tx, viewport/2 + ty).
-    // The visible square in source pixels is `viewport / scale` wide.
+    // Source rect in oriented-image-natural pixels.
     const srcSize = viewport / scale;
     const cxSrc = naturalSize.w / 2 - tx / scale;
     const cySrc = naturalSize.h / 2 - ty / scale;
-    const sx = Math.max(0, cxSrc - srcSize / 2);
-    const sy = Math.max(0, cySrc - srcSize / 2);
+    // Clamp so the source rect is fully inside the image. Without the
+    // upper bound, drawImage was sampling past the edges and the dest
+    // was getting visually squashed/stretched.
+    const maxSx = Math.max(0, naturalSize.w - srcSize);
+    const maxSy = Math.max(0, naturalSize.h - srcSize);
+    const sx = Math.max(0, Math.min(maxSx, cxSrc - srcSize / 2));
+    const sy = Math.max(0, Math.min(maxSy, cySrc - srcSize / 2));
 
-    // Output square: clamp to a sensible upload size.
-    const out = Math.min(1600, Math.round(naturalSize.w / scale * scale));
+    // Output at the source-pixel resolution (capped at 1600) so the
+    // saved photo has real detail instead of being upsampled later.
+    const out = Math.min(1600, Math.round(srcSize));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.min(1600, Math.round(srcSize * scale));
-    canvas.height = canvas.width;
+    canvas.width = out;
+    canvas.height = out;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, canvas.width, canvas.height);
+
+    // Prefer the orientation-corrected bitmap. Fall back to the <img>
+    // element if createImageBitmap wasn't available — output may be
+    // mis-rotated on iOS but at least won't be stretched.
+    const source = bitmapRef.current ?? imgRef.current;
+    if (!source) return;
+    ctx.drawImage(
+      source as CanvasImageSource,
+      sx,
+      sy,
+      srcSize,
+      srcSize,
+      0,
+      0,
+      out,
+      out
+    );
 
     const blob: Blob | null = await new Promise((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.88)
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92)
     );
     if (blob) onConfirm(blob);
-    void out;
   }
 
   return (
@@ -245,6 +292,10 @@ export default function PhotoCropper({
                 transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px))`,
                 userSelect: "none",
                 pointerEvents: "none",
+                // Make sure portrait photos display rotated like in
+                // Photos / Files, matching what the canvas crop bitmap
+                // produces.
+                imageOrientation: "from-image",
               }}
             />
           )}

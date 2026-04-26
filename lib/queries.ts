@@ -57,6 +57,13 @@ export type SpotWithStats = {
   ratingCount: number;
   /** Count of ratings created in the last 30 days. */
   recentRatingCount: number;
+  /** Rating row ID for the Boys review on this spot, if any. Lets the take
+   *  card hang reactions / share off the actual underlying rating. */
+  boysRatingId: string | null;
+  /** Reaction counts on the Boys rating, populated by getSpot only. */
+  boysReactionCounts?: Record<string, number>;
+  /** Reactions the current user has on the Boys rating. */
+  myBoysReactions?: string[];
 };
 
 /** Fetch all published spots with community stats and user state.
@@ -148,6 +155,7 @@ export async function listSpots(): Promise<SpotWithStats[]> {
       allTags: Array.from(tagSet),
       ratingCount: list.length,
       recentRatingCount: recentCount,
+      boysRatingId: null,
     } as Record<string, unknown>);
   });
 }
@@ -169,6 +177,7 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
     }),
     db
       .select({
+        id: ratings.id,
         userId: ratings.userId,
         score: ratings.score,
         note: ratings.note,
@@ -188,6 +197,26 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
 
   if (!spotRow) return null;
 
+  // Pull the Boys rating's id + reactions so the take card can host
+  // a real ReactionStrip + ShareButton instead of just being read-only.
+  const boysRow = allRatings.find((r) => r.isBoysReview);
+  let boysReactionCounts: Record<string, number> = {};
+  let myBoysReactions: string[] = [];
+  if (boysRow) {
+    const rxRows = await db
+      .select({ kind: reactions.kind, userId: reactions.userId })
+      .from(reactions)
+      .where(eq(reactions.ratingId, boysRow.id));
+    const counts: Record<string, number> = {};
+    const mine = new Set<string>();
+    for (const rx of rxRows) {
+      counts[rx.kind] = (counts[rx.kind] ?? 0) + 1;
+      if (user && rx.userId === user.id) mine.add(rx.kind);
+    }
+    boysReactionCounts = counts;
+    myBoysReactions = Array.from(mine);
+  }
+
   const community = allRatings.filter((r) => !r.isBoysReview);
   const communityCount = community.length;
   const communityScore =
@@ -200,7 +229,7 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
 
   const myRating = user ? allRatings.find((r) => r.userId === user.id) : null;
 
-  return normalizeSpot({
+  const base = normalizeSpot({
     ...spotRow,
     communityScore,
     communityCount,
@@ -211,7 +240,16 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
     userPhotoUrls: myRating?.photoUrls ?? null,
     userRatingIsBoys: Boolean(myRating?.isBoysReview),
     isSaved: Boolean(isSavedRow),
+    allTags: [],
+    ratingCount: allRatings.length,
+    recentRatingCount: 0,
   } as Record<string, unknown>);
+  return {
+    ...base,
+    boysRatingId: boysRow?.id ?? null,
+    boysReactionCounts,
+    myBoysReactions,
+  };
 }
 
 function normalizeSpot(row: Record<string, unknown>): SpotWithStats {
@@ -392,6 +430,37 @@ export async function getFollowState(targetUserId: string) {
     viewerFollows,
     canFollow: me != null && me.id !== targetUserId,
   };
+}
+
+/**
+ * Suggested users to follow. Returns admin (Baltimore Boy) accounts the
+ * current viewer doesn't already follow, ordered by activity. Skips the
+ * viewer themself.
+ */
+export async function listSuggestedBoys(viewerId: string | null, limit = 8) {
+  // All admin users
+  const allAdmins = await db
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      homeCity: users.homeCity,
+      avatarSwatch: users.avatarSwatch,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(users)
+    .where(eq(users.role, "admin"));
+
+  if (!viewerId) return allAdmins.slice(0, limit);
+
+  // Who I'm already following
+  const mine = await db
+    .select({ followingId: follows.followingId })
+    .from(follows)
+    .where(eq(follows.followerId, viewerId));
+  const followed = new Set(mine.map((m) => m.followingId));
+  return allAdmins
+    .filter((u) => u.id !== viewerId && !followed.has(u.id))
+    .slice(0, limit);
 }
 
 /** Users the given user is following — joined with their basic profile. */

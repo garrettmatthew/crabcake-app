@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
-import { listMyRatings, listFollowing } from "@/lib/queries";
+import {
+  listMyRatings,
+  listFollowing,
+  listMyBookmarks,
+  listSuggestedBoys,
+} from "@/lib/queries";
 import PassportBadges from "@/components/PassportBadges";
 import ScoreCircle, { scoreClass } from "@/components/ScoreCircle";
 import CrabLogo from "@/components/CrabLogo";
@@ -43,6 +48,8 @@ export default async function MePage() {
 
   const ratings = await listMyRatings();
   const followingList = user ? await listFollowing(user.id) : [];
+  const savedList = user ? await listMyBookmarks() : [];
+  const suggestedBoys = await listSuggestedBoys(user?.id ?? null, 8);
 
   const initials = (user?.displayName ?? "—")
     .split(/\s+/)
@@ -145,7 +152,7 @@ export default async function MePage() {
             <Stat n={ratings.length} l="Rated" />
             <Stat n={avg} l="Avg" />
             <Stat n={top} l="Top" />
-            <Stat n={0} l="Saved" asLink={true} />
+            <Stat n={savedList.length} l="Saved" asLink={true} />
           </div>
         </div>
 
@@ -172,6 +179,62 @@ export default async function MePage() {
             isAdmin={user?.role === "admin"}
           />
         </div>
+
+        {/* Suggested Boys to follow */}
+        {suggestedBoys.length > 0 && (
+          <div className="px-3.5 mb-4">
+            <h3 className="font-display font-bold text-[17px] tracking-tight mb-2.5 flex justify-between items-baseline">
+              Follow the Boys
+              <span className="text-xs text-[var(--ink-3)] font-medium">
+                Their official takes
+              </span>
+            </h3>
+            <div className="flex gap-2.5 overflow-x-auto -mx-1 px-1 pb-1">
+              {suggestedBoys.map((b) => {
+                const bInitials = (b.displayName ?? "—")
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join("")
+                  .toUpperCase();
+                const bGradient =
+                  {
+                    g1: "linear-gradient(135deg, var(--crab), var(--gold))",
+                    g2: "linear-gradient(135deg, #5a89c8, #8a5aa8)",
+                    g3: "linear-gradient(135deg, var(--green), #3b5b7d)",
+                    g4: "linear-gradient(135deg, var(--ink), #403a31)",
+                  }[b.avatarSwatch ?? "g1"] ??
+                  "linear-gradient(135deg, var(--crab), var(--gold))";
+                return (
+                  <Link
+                    key={b.id}
+                    href={`/u/${b.id}`}
+                    className="flex-shrink-0 flex flex-col items-center gap-1.5 bg-[var(--panel)] border border-[var(--border)] rounded-2xl p-2.5"
+                    style={{ width: 110 }}
+                  >
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-white text-[16px] font-extrabold overflow-hidden"
+                      style={{
+                        background: b.avatarUrl ? "transparent" : bGradient,
+                        backgroundImage: b.avatarUrl
+                          ? `url(${b.avatarUrl})`
+                          : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    >
+                      {!b.avatarUrl && bInitials}
+                    </div>
+                    <div className="text-[12px] font-bold tracking-tight truncate max-w-full text-center">
+                      {b.displayName ?? "—"}
+                    </div>
+                    <span className="chip chip-brand">Boys</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Following list */}
         {followingList.length > 0 && (

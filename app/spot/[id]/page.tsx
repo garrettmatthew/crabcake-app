@@ -11,6 +11,8 @@ import SpotActions from "@/components/SpotActions";
 import ReviewItem from "@/components/ReviewItem";
 import BoysTakeControls from "@/components/BoysTakeControls";
 import ReportSpotButton from "@/components/ReportSpotButton";
+import ReactionStrip from "@/components/ReactionStrip";
+import ShareButton from "@/components/ShareButton";
 import { getCurrentUser } from "@/lib/auth";
 
 // Score circle was rendering stale (showing "—" / "0 reviews") when a fresh
@@ -270,16 +272,26 @@ export default async function SpotPage({
           {/* Boys quote */}
           {spot.boysReviewQuote && (
             <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-4 py-4 mb-3.5">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 gap-2">
                 <div className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--crab)] font-semibold">
                   THE BALTIMORE BOYS' TAKE
                 </div>
-                {me?.role === "admin" && (
-                  <BoysTakeControls
-                    spotId={spot.id}
-                    boysScore={spot.boysScore}
-                  />
-                )}
+                <div className="flex items-center gap-1.5">
+                  {spot.boysRatingId && (
+                    <ShareButton
+                      url={`/r/${spot.boysRatingId}`}
+                      title={`Baltimore Boys on ${spot.name}`}
+                      text={spot.boysReviewQuote}
+                      ariaLabel="Share the Boys take"
+                    />
+                  )}
+                  {me?.role === "admin" && (
+                    <BoysTakeControls
+                      spotId={spot.id}
+                      boysScore={spot.boysScore}
+                    />
+                  )}
+                </div>
               </div>
               <div
                 className="italic text-[15px] leading-[1.45] text-[var(--ink-2)] pl-3"
@@ -291,6 +303,16 @@ export default async function SpotPage({
                 <div className="font-mono text-[10px] tracking-[.06em] text-[var(--ink-3)] mt-2 pl-3">
                   Boys score · {spot.boysScore.toFixed(1)}
                 </div>
+              )}
+              {/* Reactions on the Boys take. Available to any signed-in
+                  viewer; reuses the same ReactionStrip component as
+                  community reviews. */}
+              {me && spot.boysRatingId && (
+                <ReactionStrip
+                  ratingId={spot.boysRatingId}
+                  initialCounts={spot.boysReactionCounts ?? {}}
+                  initialMine={spot.myBoysReactions ?? []}
+                />
               )}
             </div>
           )}
