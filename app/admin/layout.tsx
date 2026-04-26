@@ -35,12 +35,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Lists
         </Link>
         <Link
-          href="/admin/submissions"
-          className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
-        >
-          Queue
-        </Link>
-        <Link
           href="/admin/reviews"
           className="flex-1 text-center py-2.5 text-[13px] font-bold text-[var(--ink-2)]"
         >
