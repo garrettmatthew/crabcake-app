@@ -417,6 +417,17 @@ function slugify(s: string) {
   );
 }
 
+/**
+ * Manual spot submission — used when Google Places doesn't list a venue
+ * (private clubs, brand-new openings, pop-ups). Auto-publishes the spot
+ * by trying, in order:
+ *   1. Google Places searchText("name address city") — for places Google
+ *      knows about under a slightly different name.
+ *   2. Google Geocoding on (address + city) — works for any street even
+ *      if no business is registered there.
+ *   3. Google Geocoding on (city) — falls back to the city's centroid.
+ * If all three fail, throws.
+ */
 export async function submitSpot(input: {
   name: string;
   city: string;
@@ -426,16 +437,142 @@ export async function submitSpot(input: {
   longitude?: number;
 }) {
   const user = await requireUser();
+  const name = input.name.trim();
+  const city = input.city.trim();
+  const address = input.address?.trim() || null;
+  if (!name || !city) throw new Error("Name and city required");
+
+  // 1. Geocode if caller didn't already pass coordinates.
+  let lat = input.latitude;
+  let lng = input.longitude;
+  let resolvedAddress: string | null = address;
+  let neighborhood: string | null = null;
+
+  if (lat == null || lng == null) {
+    const key = process.env.GOOGLE_PLACES_API_KEY;
+    if (!key) throw new Error("GOOGLE_PLACES_API_KEY not set");
+
+    // Try Places search first
+    try {
+      const q = [name, address, city].filter(Boolean).join(" ");
+      const r = await fetch(
+        "https://places.googleapis.com/v1/places:searchText",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask":
+              "places.location,places.formattedAddress,places.addressComponents",
+          },
+          body: JSON.stringify({
+            textQuery: q,
+            maxResultCount: 1,
+            regionCode: "us",
+          }),
+        }
+      );
+      if (r.ok) {
+        const data = (await r.json()) as {
+          places?: Array<{
+            location?: { latitude?: number; longitude?: number };
+            formattedAddress?: string;
+            addressComponents?: Array<{ longText: string; types: string[] }>;
+          }>;
+        };
+        const p = data.places?.[0];
+        if (p?.location?.latitude != null && p?.location?.longitude != null) {
+          lat = p.location.latitude;
+          lng = p.location.longitude;
+          resolvedAddress = resolvedAddress ?? p.formattedAddress ?? null;
+          const nb = p.addressComponents?.find((c) =>
+            c.types.includes("neighborhood")
+          )?.longText;
+          if (nb) neighborhood = nb;
+        }
+      }
+    } catch {
+      /* fall through to geocoding */
+    }
+
+    // Fall back to Geocoding API on address+city, then city alone
+    if (lat == null || lng == null) {
+      const queries = [
+        address ? `${address}, ${city}` : null,
+        city,
+      ].filter(Boolean) as string[];
+      for (const q of queries) {
+        try {
+          const r = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${key}`
+          );
+          if (!r.ok) continue;
+          const data = (await r.json()) as {
+            results?: Array<{
+              geometry?: { location?: { lat?: number; lng?: number } };
+              formatted_address?: string;
+            }>;
+            status?: string;
+          };
+          const loc = data.results?.[0]?.geometry?.location;
+          if (loc?.lat != null && loc?.lng != null) {
+            lat = loc.lat;
+            lng = loc.lng;
+            resolvedAddress =
+              resolvedAddress ?? data.results?.[0]?.formatted_address ?? null;
+            break;
+          }
+        } catch {
+          /* try the next query */
+        }
+      }
+    }
+  }
+
+  if (lat == null || lng == null) {
+    throw new Error(
+      "Couldn't locate that spot. Double-check the city and try again."
+    );
+  }
+
+  // 2. Generate a unique slug.
+  let base = slugify(name);
+  let candidate = base;
+  let i = 2;
+  while (await db.query.spots.findFirst({ where: eq(spots.id, candidate) })) {
+    candidate = `${base}-${i++}`;
+  }
+
+  // 3. Insert the spot directly — published, attributed to this user.
+  await db.insert(spots).values({
+    id: candidate,
+    name,
+    city,
+    neighborhood,
+    address: resolvedAddress,
+    latitude: lat,
+    longitude: lng,
+    isPublished: true,
+    createdBy: user.id,
+  });
+
+  // 4. If the user typed a note, also persist it as their first rating's
+  //    note? — skip; the manual form doesn't ask for a score, so a note
+  //    without a rating would be orphaned. The note is stored on the
+  //    submissions table for any future audit.
   await db.insert(submissions).values({
     id: nanoid(),
     userId: user.id,
-    name: input.name.trim(),
-    city: input.city.trim(),
-    address: input.address?.trim() || null,
+    name,
+    city,
+    address: resolvedAddress,
     note: input.note?.trim() || null,
+    status: "approved",
   });
-  revalidatePath("/admin/submissions");
-  return { ok: true };
+
+  revalidatePath("/");
+  revalidatePath("/admin/spots");
+  return { ok: true, spotId: candidate };
 }
 
 export async function approveSubmission(

@@ -83,14 +83,20 @@ export default function AddSpotForm({
   function submitManual() {
     if (!mName.trim() || !mCity.trim()) return;
     startTransition(async () => {
-      await submitSpot({
-        name: mName,
-        city: mCity,
-        address: mAddress || undefined,
-        note: mNote || undefined,
-      });
-      showToast("Sent to the Boys for review");
-      router.push("/");
+      try {
+        const res = await submitSpot({
+          name: mName,
+          city: mCity,
+          address: mAddress || undefined,
+          note: mNote || undefined,
+        });
+        if (res.ok && res.spotId) {
+          showToast("Added to the map");
+          router.push(`/spot/${res.spotId}`);
+        }
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "Failed to add");
+      }
     });
   }
 
@@ -228,8 +234,8 @@ export default function AddSpotForm({
         {showManual && (
           <div className="bg-[var(--panel)] border border-[var(--border)] rounded-2xl p-4 mb-4">
             <div className="text-[12.5px] text-[var(--ink-2)] mb-3 leading-[1.5]">
-              For private clubs, pop-ups, or anywhere Google doesn't list. Goes
-              to the Boys for review.
+              For private clubs, pop-ups, or anywhere Google doesn't list.
+              We'll geocode the address and drop it on the map.
             </div>
             <Field label="Name">
               <input
@@ -268,7 +274,7 @@ export default function AddSpotForm({
               className="h-12 w-full bg-[var(--crab)] text-white rounded-full font-extrabold text-[14.5px] mt-2 disabled:opacity-60"
               style={{ boxShadow: "0 4px 14px -4px rgba(232,61,53,.45)" }}
             >
-              {adding ? "Sending…" : "Submit for review →"}
+              {adding ? "Adding…" : "Add to the map →"}
             </button>
           </div>
         )}
