@@ -39,6 +39,12 @@ function escapeHtml(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+/** Exported so the admin preview route can render the same HTML. */
+export function renderDigestHtml(name: string, summary: SummaryItem): string {
+  return buildHtml(name, summary);
+}
+export type DigestSummary = SummaryItem;
+
 function buildHtml(name: string, summary: SummaryItem): string {
   const items: string[] = [];
 
