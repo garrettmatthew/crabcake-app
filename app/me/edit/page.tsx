@@ -11,6 +11,8 @@ export default async function EditProfilePage() {
       bio={user.bio ?? ""}
       avatarSwatch={user.avatarSwatch ?? "g1"}
       avatarUrl={user.avatarUrl ?? null}
+      email={user.email ?? null}
+      emailDigestEnabled={Boolean(user.emailDigestEnabled)}
     />
   );
 }

@@ -19,6 +19,10 @@ export const users = pgTable("users", {
   avatarSwatch: text("avatar_swatch").default("g1"),
   avatarUrl: text("avatar_url"),
   badgesEarned: text("badges_earned").array(),
+  emailDigestEnabled: boolean("email_digest_enabled").default(false),
+  emailDigestLastSentAt: timestamp("email_digest_last_sent_at", {
+    withTimezone: true,
+  }),
   homeCity: text("home_city").default("Baltimore, MD"),
   bio: text("bio"),
   role: text("role").notNull().default("user"),

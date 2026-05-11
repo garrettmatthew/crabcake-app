@@ -19,12 +19,16 @@ export default function EditProfileForm({
   bio: initialBio,
   avatarSwatch: initialSwatch,
   avatarUrl: initialAvatarUrl,
+  email,
+  emailDigestEnabled: initialDigestEnabled,
 }: {
   displayName: string;
   homeCity: string;
   bio: string;
   avatarSwatch: string;
   avatarUrl: string | null;
+  email: string | null;
+  emailDigestEnabled: boolean;
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialName);
@@ -34,6 +38,7 @@ export default function EditProfileForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [emailDigestEnabled, setEmailDigestEnabled] = useState(initialDigestEnabled);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +75,7 @@ export default function EditProfileForm({
         bio,
         avatarSwatch: swatch,
         avatarUrl,
+        emailDigestEnabled,
       });
       showToast("Profile saved");
       router.push("/me");
@@ -197,6 +203,51 @@ export default function EditProfileForm({
             placeholder="Tell people your crab cake philosophy."
           />
         </Field>
+
+        {/* Email digest opt-in */}
+        <div className="font-mono text-[9.5px] tracking-[.08em] uppercase text-[var(--ink-3)] font-semibold mb-1.5 pl-0.5 mt-4">
+          Notifications
+        </div>
+        <label
+          className="w-full bg-[var(--panel)] border border-[var(--border)] rounded-xl px-3.5 py-3 flex items-center gap-3 mb-3 cursor-pointer"
+          style={{ opacity: email ? 1 : 0.5 }}
+        >
+          <div
+            role="switch"
+            aria-checked={emailDigestEnabled}
+            onClick={(e) => {
+              if (!email) return;
+              e.preventDefault();
+              setEmailDigestEnabled((v) => !v);
+            }}
+            className="w-10 h-6 rounded-full relative flex-shrink-0"
+            style={{
+              background: emailDigestEnabled
+                ? "var(--crab)"
+                : "var(--border-2)",
+              transition: "background .15s",
+            }}
+          >
+            <div
+              className="absolute top-[2px] w-5 h-5 rounded-full bg-white"
+              style={{
+                left: emailDigestEnabled ? 18 : 2,
+                transition: "left .15s",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }}
+            />
+          </div>
+          <div className="flex-1">
+            <div className="text-[13.5px] font-bold leading-tight">
+              Daily email digest
+            </div>
+            <div className="text-[11.5px] text-[var(--ink-3)] mt-0.5 leading-tight">
+              {email
+                ? "New followers, reviews from people you follow, and badges. One email per day."
+                : "Add an email to your Clerk account to enable."}
+            </div>
+          </div>
+        </label>
 
         <button
           onClick={save}

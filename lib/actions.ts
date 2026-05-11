@@ -292,6 +292,7 @@ export async function updateProfile(input: {
   bio: string;
   avatarSwatch: string;
   avatarUrl?: string | null;
+  emailDigestEnabled?: boolean;
 }) {
   const user = await requireUser();
   await db
@@ -302,6 +303,7 @@ export async function updateProfile(input: {
       bio: input.bio,
       avatarSwatch: input.avatarSwatch,
       avatarUrl: input.avatarUrl ?? null,
+      emailDigestEnabled: input.emailDigestEnabled ?? false,
     })
     .where(eq(users.id, user.id));
   revalidatePath(`/me`);
