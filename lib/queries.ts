@@ -51,6 +51,8 @@ export type SpotWithStats = {
   userPhotoUrl: string | null;
   userPhotoUrls: string[] | null;
   userRatingIsBoys: boolean;
+  /** Photos attached to the official Boys rating, if one exists. */
+  boysPhotoUrls: string[] | null;
   /** Union of every tag that appears on any rating for this spot. */
   allTags: string[];
   /** Total rating count (Boys + community), used for momentum scoring. */
@@ -229,6 +231,15 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
 
   const myRating = user ? allRatings.find((r) => r.userId === user.id) : null;
 
+  // Photos attached to the Boys rating itself — render on the Boys
+  // take card so the official review is as rich as a community one.
+  const boysPhotoUrls =
+    boysRow?.photoUrls && boysRow.photoUrls.length > 0
+      ? boysRow.photoUrls
+      : boysRow?.photoUrl
+        ? [boysRow.photoUrl]
+        : null;
+
   const base = normalizeSpot({
     ...spotRow,
     communityScore,
@@ -243,6 +254,7 @@ export async function getSpot(id: string): Promise<SpotWithStats | null> {
     allTags: [],
     ratingCount: allRatings.length,
     recentRatingCount: 0,
+    boysPhotoUrls,
   } as Record<string, unknown>);
   return {
     ...base,

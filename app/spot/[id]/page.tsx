@@ -12,6 +12,7 @@ import ReviewItem from "@/components/ReviewItem";
 import BoysTakeControls from "@/components/BoysTakeControls";
 import ReportSpotButton from "@/components/ReportSpotButton";
 import ReactionStrip from "@/components/ReactionStrip";
+import PhotoLightbox from "@/components/PhotoLightbox";
 import ShareButton from "@/components/ShareButton";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -302,6 +303,31 @@ export default async function SpotPage({
               {spot.boysScore != null && (
                 <div className="font-mono text-[10px] tracking-[.06em] text-[var(--ink-3)] mt-2 pl-3">
                   Boys score · {spot.boysScore.toFixed(1)}
+                </div>
+              )}
+              {/* Photos attached to the Boys rating — same lightbox UX as
+                  community review photos. */}
+              {spot.boysPhotoUrls && spot.boysPhotoUrls.length > 0 && (
+                <div className="mt-3">
+                  {spot.boysPhotoUrls.length === 1 ? (
+                    <PhotoLightbox
+                      src={spot.boysPhotoUrls[0]}
+                      alt="Boys' photo"
+                      className="rounded-xl h-40 w-full block border-0 p-0"
+                    />
+                  ) : (
+                    <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 snap-x">
+                      {spot.boysPhotoUrls.map((url, i) => (
+                        <PhotoLightbox
+                          key={url + i}
+                          src={url}
+                          alt={`Boys' photo ${i + 1}`}
+                          className="rounded-xl h-32 flex-shrink-0 block border-0 p-0 snap-start"
+                          style={{ width: 144 }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {/* Reactions on the Boys take. Available to any signed-in
