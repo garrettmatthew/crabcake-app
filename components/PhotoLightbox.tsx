@@ -15,11 +15,19 @@ export default function PhotoLightbox({
   alt = "",
   className,
   style,
+  fit = "contain",
 }: {
   src: string;
   alt?: string;
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * How the thumbnail fits its container. 'contain' preserves the
+   * photo's natural aspect ratio (with letterboxing if needed).
+   * 'cover' crops to fill. Default is 'contain' so user-uploaded
+   * photos don't have their tops and bottoms chopped off.
+   */
+  fit?: "contain" | "cover";
 }) {
   const [open, setOpen] = useState(false);
   const isVideo = VIDEO_RX.test(src);
@@ -44,18 +52,16 @@ export default function PhotoLightbox({
         onClick={() => setOpen(true)}
         className={className}
         style={{
-          background: isVideo ? "#000" : undefined,
-          backgroundImage: isVideo ? undefined : `url(${src})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          background: "#0a0907",
           cursor: "zoom-in",
           position: "relative",
           overflow: "hidden",
+          padding: 0,
           ...style,
         }}
         aria-label={alt || (isVideo ? "Play video" : "View photo")}
       >
-        {isVideo && (
+        {isVideo ? (
           <>
             <video
               src={src}
@@ -63,11 +69,10 @@ export default function PhotoLightbox({
               playsInline
               preload="metadata"
               style={{
-                position: "absolute",
-                inset: 0,
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: fit,
+                display: "block",
                 pointerEvents: "none",
               }}
             />
@@ -92,6 +97,19 @@ export default function PhotoLightbox({
               </svg>
             </span>
           </>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: fit,
+              display: "block",
+            }}
+          />
         )}
       </button>
       {open && (

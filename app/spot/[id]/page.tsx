@@ -313,7 +313,8 @@ export default async function SpotPage({
                     <PhotoLightbox
                       src={spot.boysPhotoUrls[0]}
                       alt="Boys' photo"
-                      className="rounded-xl h-40 w-full block border-0 p-0"
+                      className="rounded-xl w-full block border-0"
+                      style={{ height: 260 }}
                     />
                   ) : (
                     <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 snap-x">
@@ -322,8 +323,8 @@ export default async function SpotPage({
                           key={url + i}
                           src={url}
                           alt={`Boys' photo ${i + 1}`}
-                          className="rounded-xl h-32 flex-shrink-0 block border-0 p-0 snap-start"
-                          style={{ width: 144 }}
+                          className="rounded-xl flex-shrink-0 block border-0 snap-start"
+                          style={{ height: 200, width: 200 }}
                         />
                       ))}
                     </div>

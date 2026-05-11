@@ -133,7 +133,8 @@ export default function ReviewItem({
             <PhotoLightbox
               src={photos[0]}
               alt={`Photo from ${review.userName ?? "a reviewer"}`}
-              className="mt-2 rounded-xl h-36 w-full block border-0 p-0"
+              className="mt-2 rounded-xl w-full block border-0"
+              style={{ height: 240 }}
             />
           );
         }
@@ -144,8 +145,8 @@ export default function ReviewItem({
                 key={url + i}
                 src={url}
                 alt={`Photo ${i + 1} from ${review.userName ?? "a reviewer"}`}
-                className="rounded-xl h-32 flex-shrink-0 block border-0 p-0 snap-start"
-                style={{ width: 144 }}
+                className="rounded-xl flex-shrink-0 block border-0 snap-start"
+                style={{ height: 180, width: 180 }}
               />
             ))}
           </div>
