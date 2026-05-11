@@ -680,18 +680,29 @@ export async function listTags() {
 }
 
 export async function listAllUsers() {
-  return db
-    .select({
-      id: users.id,
-      displayName: users.displayName,
-      email: users.email,
-      role: users.role,
-      avatarSwatch: users.avatarSwatch,
-      createdAt: users.createdAt,
-      ratingCount: sql<number>`(SELECT COUNT(*)::int FROM ${ratings} WHERE ${ratings.userId} = ${users.id})`,
-    })
-    .from(users)
-    .orderBy(desc(users.role), desc(users.createdAt));
+  // Same correlated-subquery quirk that bit getSpot / listSpots — the inline
+  // SELECT COUNT(*) was reporting 0 for every user. Fetch ratings separately
+  // and tally per user_id in JS.
+  const [userRows, ratingRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        email: users.email,
+        role: users.role,
+        avatarSwatch: users.avatarSwatch,
+        avatarUrl: users.avatarUrl,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(desc(users.role), desc(users.createdAt)),
+    db.select({ userId: ratings.userId }).from(ratings),
+  ]);
+  const counts = new Map<string, number>();
+  for (const r of ratingRows) {
+    counts.set(r.userId, (counts.get(r.userId) ?? 0) + 1);
+  }
+  return userRows.map((u) => ({ ...u, ratingCount: counts.get(u.id) ?? 0 }));
 }
 
 export async function listMyBookmarks() {
