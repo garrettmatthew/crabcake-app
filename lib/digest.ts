@@ -5,8 +5,13 @@
  */
 import { db } from "./db";
 import { users, notifications, spots } from "./db/schema";
-import { and, eq, gt, sql, desc } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { and, eq, gt, desc } from "drizzle-orm";
 import { sendEmail } from "./email";
+
+// Aliased users table for joining the actor (so it doesn't collide with
+// the recipient join in sendDailyDigests).
+const actor = alias(users, "actor_user");
 
 const BADGE_EMOJI: Record<string, string> = {
   "first-cake": "🥇",
@@ -182,16 +187,19 @@ export async function sendDailyDigests(opts?: { now?: Date }) {
     const cutoff =
       u.lastSentAt && u.lastSentAt > dayAgo ? u.lastSentAt : dayAgo;
 
-    // Pull notifications since cutoff
+    // Pull notifications since cutoff. Actor + spot via LEFT JOIN — we
+    // dropped correlated subqueries from the codebase after a string of
+    // bugs where they silently returned wrong data.
     const rows = await db
       .select({
         kind: notifications.kind,
         meta: notifications.meta,
-        actorName: sql<string | null>`(SELECT display_name FROM users WHERE users.id = ${notifications.actorId})`,
+        actorName: actor.displayName,
         spotName: spots.name,
         spotId: notifications.spotId,
       })
       .from(notifications)
+      .leftJoin(actor, eq(actor.id, notifications.actorId))
       .leftJoin(spots, eq(spots.id, notifications.spotId))
       .where(
         and(eq(notifications.userId, u.id), gt(notifications.createdAt, cutoff))

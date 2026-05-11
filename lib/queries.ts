@@ -284,6 +284,9 @@ export async function listCommunityReviews(
   limit = 12
 ) {
   const me = await getCurrentUser();
+  // Reviewer info via LEFT JOIN rather than correlated subqueries — we've
+  // had three separate bugs from that pattern (getSpot, listSpots,
+  // listAllUsers) so the codebase doesn't use it anywhere anymore.
   const reviewRows = await db
     .select({
       id: ratings.id,
@@ -294,11 +297,12 @@ export async function listCommunityReviews(
       photoUrls: ratings.photoUrls,
       createdAt: ratings.createdAt,
       userId: ratings.userId,
-      userName: sql<string | null>`(SELECT display_name FROM users WHERE users.id = ${ratings.userId})`,
-      avatarSwatch: sql<string | null>`(SELECT avatar_swatch FROM users WHERE users.id = ${ratings.userId})`,
-      avatarUrl: sql<string | null>`(SELECT avatar_url FROM users WHERE users.id = ${ratings.userId})`,
+      userName: users.displayName,
+      avatarSwatch: users.avatarSwatch,
+      avatarUrl: users.avatarUrl,
     })
     .from(ratings)
+    .leftJoin(users, eq(users.id, ratings.userId))
     .where(and(eq(ratings.spotId, spotId), eq(ratings.isBoysReview, false)))
     .orderBy(desc(ratings.createdAt))
     .limit(limit);
@@ -624,28 +628,51 @@ export async function listAllSpots() {
 }
 
 export async function listCollections(onlyPublished = true) {
-  const q = db
-    .select({
-      id: collections.id,
-      title: collections.title,
-      description: collections.description,
-      emoji: collections.emoji,
-      gradient: collections.gradient,
-      position: collections.position,
-      isPublished: collections.isPublished,
-      createdAt: collections.createdAt,
-      spotCount: sql<number>`(SELECT COUNT(*)::int FROM ${collectionSpots} WHERE ${collectionSpots.collectionId} = ${collections.id})`,
-      firstCityList: sql<string | null>`(
-        SELECT string_agg(DISTINCT s.city, ',' ORDER BY s.city)
-        FROM ${collectionSpots} cs
-        JOIN ${spots} s ON s.id = cs.spot_id
-        WHERE cs.collection_id = ${collections.id}
-      )`,
-    })
-    .from(collections)
-    .orderBy(asc(collections.position), desc(collections.createdAt));
-  if (onlyPublished) return q.where(eq(collections.isPublished, true));
-  return q;
+  // Same correlated-subquery quirk avoided here. Fetch collections + their
+  // spot memberships in two queries and stitch in JS.
+  const [collectionRows, memberships] = await Promise.all([
+    onlyPublished
+      ? db
+          .select()
+          .from(collections)
+          .where(eq(collections.isPublished, true))
+          .orderBy(asc(collections.position), desc(collections.createdAt))
+      : db
+          .select()
+          .from(collections)
+          .orderBy(asc(collections.position), desc(collections.createdAt)),
+    db
+      .select({
+        collectionId: collectionSpots.collectionId,
+        city: spots.city,
+      })
+      .from(collectionSpots)
+      .innerJoin(spots, eq(spots.id, collectionSpots.spotId)),
+  ]);
+
+  const byCollection = new Map<string, string[]>();
+  for (const m of memberships) {
+    const list = byCollection.get(m.collectionId);
+    if (list) list.push(m.city);
+    else byCollection.set(m.collectionId, [m.city]);
+  }
+
+  return collectionRows.map((c) => {
+    const cities = byCollection.get(c.id) ?? [];
+    const uniqueCities = Array.from(new Set(cities)).sort();
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      emoji: c.emoji,
+      gradient: c.gradient,
+      position: c.position,
+      isPublished: c.isPublished,
+      createdAt: c.createdAt,
+      spotCount: cities.length,
+      firstCityList: uniqueCities.length > 0 ? uniqueCities.join(",") : null,
+    };
+  });
 }
 
 export async function getCollection(id: string) {
