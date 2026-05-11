@@ -6,7 +6,7 @@
 import { db } from "./db";
 import { users, notifications, spots } from "./db/schema";
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, gt, desc } from "drizzle-orm";
+import { and, eq, gt, desc, isNotNull } from "drizzle-orm";
 import { sendEmail } from "./email";
 
 // Aliased users table for joining the actor (so it doesn't collide with
@@ -168,7 +168,7 @@ export async function sendDailyDigests(opts?: { now?: Date }) {
     .where(
       and(
         eq(users.emailDigestEnabled, true),
-        sql`${users.email} IS NOT NULL`
+        isNotNull(users.email)
       )
     );
 
