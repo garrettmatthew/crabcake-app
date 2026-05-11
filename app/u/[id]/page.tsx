@@ -120,8 +120,16 @@ export default async function PublicProfilePage({
           )}
           <div className="grid grid-cols-4 gap-2 pt-2 border-t border-[var(--border)]">
             <Stat label="Reviews" value={String(userRatings.length)} />
-            <Stat label="Followers" value={String(follow.followerCount)} />
-            <Stat label="Following" value={String(follow.followingCount)} />
+            <Stat
+              label="Followers"
+              value={String(follow.followerCount)}
+              href={`/u/${profile.id}/followers`}
+            />
+            <Stat
+              label="Following"
+              value={String(follow.followingCount)}
+              href={`/u/${profile.id}/following`}
+            />
             <Stat label="Avg" value={avgScore ?? "—"} />
           </div>
           {follow.canFollow && (
@@ -226,15 +234,31 @@ export default async function PublicProfilePage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center">
+function Stat({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  const content = (
+    <>
       <div className="font-display font-extrabold text-[20px] tracking-tight leading-none">
         {value}
       </div>
       <div className="font-mono text-[9px] tracking-[.08em] uppercase text-[var(--ink-3)] mt-1 font-semibold">
         {label}
       </div>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="text-center block">
+        {content}
+      </Link>
+    );
+  }
+  return <div className="text-center">{content}</div>;
 }

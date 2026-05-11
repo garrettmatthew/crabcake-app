@@ -3,6 +3,7 @@ import { ensureDemoUser, hasClerk } from "@/lib/auth";
 import {
   listMyRatings,
   listFollowing,
+  listFollowers,
   listMyBookmarks,
   listSuggestedBoys,
 } from "@/lib/queries";
@@ -48,6 +49,7 @@ export default async function MePage() {
 
   const ratings = await listMyRatings();
   const followingList = user ? await listFollowing(user.id) : [];
+  const followersList = user ? await listFollowers(user.id) : [];
   const savedList = user ? await listMyBookmarks() : [];
   const suggestedBoys = await listSuggestedBoys(user?.id ?? null, 8);
 
@@ -236,14 +238,46 @@ export default async function MePage() {
           </div>
         )}
 
-        {/* Following list */}
+        {/* Followers + Following counts — always rendered when signed in
+            so the user can navigate to the full lists. */}
+        {user && (followingList.length > 0 || followersList.length > 0) && (
+          <div className="px-3.5 mb-4 grid grid-cols-2 gap-2">
+            <Link
+              href={`/u/${user.id}/followers`}
+              className="block bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-center"
+            >
+              <div className="font-display font-extrabold text-[20px] tracking-tight leading-none">
+                {followersList.length}
+              </div>
+              <div className="font-mono text-[9px] tracking-[.08em] uppercase text-[var(--ink-3)] mt-1 font-semibold">
+                Followers
+              </div>
+            </Link>
+            <Link
+              href={`/u/${user.id}/following`}
+              className="block bg-[var(--panel)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-center"
+            >
+              <div className="font-display font-extrabold text-[20px] tracking-tight leading-none">
+                {followingList.length}
+              </div>
+              <div className="font-mono text-[9px] tracking-[.08em] uppercase text-[var(--ink-3)] mt-1 font-semibold">
+                Following
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {/* Following carousel — quick avatar links to favorites */}
         {followingList.length > 0 && (
           <div className="px-3.5 mb-4">
             <h3 className="font-display font-bold text-[17px] tracking-tight mb-2.5 flex justify-between items-baseline">
               Following
-              <span className="text-xs text-[var(--ink-3)] font-medium">
-                {followingList.length}
-              </span>
+              <Link
+                href={user ? `/u/${user.id}/following` : "#"}
+                className="text-xs text-[var(--crab)] font-semibold"
+              >
+                See all →
+              </Link>
             </h3>
             <div className="flex gap-2.5 overflow-x-auto -mx-1 px-1 pb-1">
               {followingList.map((f) => {

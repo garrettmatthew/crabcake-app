@@ -517,6 +517,24 @@ export async function listSuggestedBoys(viewerId: string | null, limit = 8) {
     .slice(0, limit);
 }
 
+/** Users who are following the given user — joined with their basic profile. */
+export async function listFollowers(userId: string) {
+  return db
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      homeCity: users.homeCity,
+      avatarSwatch: users.avatarSwatch,
+      avatarUrl: users.avatarUrl,
+      role: users.role,
+      followedAt: follows.createdAt,
+    })
+    .from(follows)
+    .innerJoin(users, eq(users.id, follows.followerId))
+    .where(eq(follows.followingId, userId))
+    .orderBy(desc(follows.createdAt));
+}
+
 /** Users the given user is following — joined with their basic profile. */
 export async function listFollowing(userId: string) {
   return db
