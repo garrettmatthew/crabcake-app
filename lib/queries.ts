@@ -11,6 +11,7 @@ import {
   reactions,
   spotScoreHistory,
   follows,
+  notifications,
 } from "./db/schema";
 import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
 import { getCurrentUser } from "./auth";
@@ -411,6 +412,47 @@ export async function listRatingsByUser(userId: string) {
     .innerJoin(spots, eq(spots.id, ratings.spotId))
     .where(and(eq(ratings.userId, userId), eq(spots.isPublished, true)))
     .orderBy(desc(ratings.createdAt));
+}
+
+/** Notification feed for the current user, newest first. */
+export async function listMyNotifications(limit = 50) {
+  const me = await getCurrentUser();
+  if (!me) return [];
+  const actorAlias = users;
+  return db
+    .select({
+      id: notifications.id,
+      kind: notifications.kind,
+      ratingId: notifications.ratingId,
+      spotId: notifications.spotId,
+      meta: notifications.meta,
+      readAt: notifications.readAt,
+      createdAt: notifications.createdAt,
+      actorId: notifications.actorId,
+      actorName: actorAlias.displayName,
+      actorAvatarUrl: actorAlias.avatarUrl,
+      actorAvatarSwatch: actorAlias.avatarSwatch,
+      spotName: spots.name,
+    })
+    .from(notifications)
+    .leftJoin(actorAlias, eq(actorAlias.id, notifications.actorId))
+    .leftJoin(spots, eq(spots.id, notifications.spotId))
+    .where(eq(notifications.userId, me.id))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+}
+
+/** Number of unread notifications for the current user. */
+export async function countUnreadNotifications() {
+  const me = await getCurrentUser();
+  if (!me) return 0;
+  const rows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(
+      and(eq(notifications.userId, me.id), sql`${notifications.readAt} IS NULL`)
+    );
+  return rows.length;
 }
 
 /** Follower / following counts + whether the current viewer is following. */

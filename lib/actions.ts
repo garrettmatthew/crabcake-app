@@ -14,9 +14,10 @@ import {
   reactions,
   spotScoreHistory,
   follows,
+  notifications,
 } from "./db/schema";
 import { getCurrentUser, requireUser, requireAdmin } from "./auth";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -154,9 +155,31 @@ export async function submitRating(input: {
     revalidatePath("/lists");
   }
 
+  // Notify every follower that this user posted a new review. Skip on
+  // edits (when an existing rating row was just updated, not inserted).
+  if (!existing) {
+    const followers = await db
+      .select({ id: follows.followerId })
+      .from(follows)
+      .where(eq(follows.followingId, user.id));
+    for (const f of followers) {
+      await createNotification({
+        userId: f.id,
+        kind: "followed_user_review",
+        actorId: user.id,
+        spotId: input.spotId,
+      });
+    }
+  }
+
+  // Check whether this rating earned any new badges. Fires its own
+  // notification(s) on the user themselves.
+  await checkBadgesAfterRating(user.id);
+
   revalidatePath(`/spot/${input.spotId}`);
   revalidatePath(`/me`);
   revalidatePath(`/`);
+  revalidatePath(`/notifications`);
   return { ok: true, asBoys };
 }
 
@@ -286,6 +309,165 @@ export async function updateProfile(input: {
 }
 
 /**
+ * Insert a notification row, skipping no-op self-notifications. Used by
+ * all the actions below that need to alert a user about something.
+ */
+async function createNotification(input: {
+  userId: string;
+  kind: string;
+  actorId?: string | null;
+  ratingId?: string | null;
+  spotId?: string | null;
+  meta?: string | null;
+}) {
+  if (input.actorId && input.actorId === input.userId) return;
+  try {
+    await db.insert(notifications).values({
+      id: nanoid(),
+      userId: input.userId,
+      kind: input.kind,
+      actorId: input.actorId ?? null,
+      ratingId: input.ratingId ?? null,
+      spotId: input.spotId ?? null,
+      meta: input.meta ?? null,
+    });
+  } catch (e) {
+    // Notifications are best-effort. Failing to write one shouldn't block
+    // the action that triggered it.
+    console.warn("createNotification failed", e);
+  }
+}
+
+/**
+ * Compute which badges a user qualifies for based on their ratings.
+ * Mirrors the logic in PassportBadges. Pure function — no DB I/O.
+ * Returns the set of badge IDs they've earned.
+ */
+function computeBadgeIds(
+  userRatings: Array<{
+    spotId: string;
+    spotCity: string;
+    spotVenueType: string | null;
+    isBoysReview: boolean;
+    score: string;
+  }>,
+  isAdmin: boolean
+): Set<string> {
+  const earned = new Set<string>();
+  const spotIds = new Set(userRatings.map((r) => r.spotId));
+  const cities = new Set(userRatings.map((r) => r.spotCity).filter(Boolean));
+  const venueTypes = new Map<string, number>();
+  for (const r of userRatings) {
+    if (r.spotVenueType)
+      venueTypes.set(
+        r.spotVenueType,
+        (venueTypes.get(r.spotVenueType) ?? 0) + 1
+      );
+  }
+  const states = new Set<string>();
+  for (const c of cities) {
+    const st = c.split(",")[1]?.trim();
+    if (st) states.add(st);
+  }
+  const tens = userRatings.filter((r) => parseFloat(r.score) === 10).length;
+  const ones = userRatings.filter((r) => parseFloat(r.score) <= 1).length;
+  const boysCount = userRatings.filter((r) => r.isBoysReview).length;
+
+  if (userRatings.length >= 1) earned.add("first-cake");
+  if (spotIds.size >= 5) earned.add("five-spots");
+  if (spotIds.size >= 10) earned.add("ten-spots");
+  if (spotIds.size >= 25) earned.add("twenty-five-spots");
+  if (cities.size >= 3) earned.add("three-cities");
+  if (states.size >= 5) earned.add("five-states");
+  if ((venueTypes.get("Country Club") ?? 0) >= 3) earned.add("country-club");
+  if ((venueTypes.get("Oyster Bar") ?? 0) >= 3) earned.add("oyster");
+  if ((venueTypes.get("Hotel") ?? 0) >= 3) earned.add("hotel");
+  if (tens >= 1) earned.add("perfect-ten");
+  if (ones >= 1) earned.add("harsh-critic");
+  if (isAdmin && boysCount >= 5) earned.add("boys-five");
+  return earned;
+}
+
+const BADGE_LABELS: Record<string, string> = {
+  "first-cake": "First Cake 🥇",
+  "five-spots": "Five Spots 🍽️",
+  "ten-spots": "Cake Log Started 📒",
+  "twenty-five-spots": "Connoisseur 🏆",
+  "three-cities": "City Hopper 🏙️",
+  "five-states": "Five States 🗺️",
+  "country-club": "Country Club Card ⛳️",
+  oyster: "Oyster Bar Tour 🦪",
+  hotel: "Hotel Hopper 🏨",
+  "perfect-ten": "Perfect Ten 💯",
+  "harsh-critic": "Harsh Critic 💀",
+  "boys-five": "Boys Voice 🦀",
+};
+
+/**
+ * Diff this user's freshly-earned badges against what they had stored.
+ * Fire a notification + persist the new set if anything changed.
+ */
+async function checkBadgesAfterRating(userId: string) {
+  const me = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!me) return;
+
+  const ratingsRows = await db
+    .select({
+      spotId: ratings.spotId,
+      isBoysReview: ratings.isBoysReview,
+      score: ratings.score,
+      spotCity: spots.city,
+      spotVenueType: spots.venueType,
+    })
+    .from(ratings)
+    .innerJoin(spots, eq(spots.id, ratings.spotId))
+    .where(eq(ratings.userId, userId));
+
+  const nowEarned = computeBadgeIds(ratingsRows, me.role === "admin");
+  const previously = new Set(me.badgesEarned ?? []);
+  const newlyEarned: string[] = [];
+  for (const id of nowEarned) {
+    if (!previously.has(id)) newlyEarned.push(id);
+  }
+  if (newlyEarned.length === 0 && previously.size === nowEarned.size) return;
+
+  // Persist the union so we never re-notify for the same badge.
+  await db
+    .update(users)
+    .set({ badgesEarned: Array.from(nowEarned) })
+    .where(eq(users.id, userId));
+
+  // First time we initialize this for a user, skip notifications — they
+  // already earned these badges before the system existed.
+  if (me.badgesEarned == null) return;
+
+  for (const id of newlyEarned) {
+    await createNotification({
+      userId,
+      kind: "badge_earned",
+      meta: BADGE_LABELS[id] ?? id,
+    });
+  }
+}
+
+/**
+ * Mark all of the current user's unread notifications as read. Called
+ * when they open /notifications.
+ */
+export async function markNotificationsRead() {
+  const user = await requireUser();
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(eq(notifications.userId, user.id), sql`${notifications.readAt} IS NULL`)
+    );
+  revalidatePath("/notifications");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/**
  * Follow / unfollow another user. Idempotent — calling twice with the
  * same target toggles. Returns the resulting state so the UI can update
  * without a second roundtrip.
@@ -311,6 +493,11 @@ export async function toggleFollow(targetUserId: string) {
     id: nanoid(),
     followerId: user.id,
     followingId: targetUserId,
+  });
+  await createNotification({
+    userId: targetUserId,
+    kind: "new_follower",
+    actorId: user.id,
   });
   revalidatePath(`/u/${targetUserId}`);
   revalidatePath(`/me`);
@@ -350,6 +537,20 @@ export async function toggleReaction(input: {
     userId: user.id,
     kind: input.kind,
   });
+  // Notify the review's author.
+  const target = await db.query.ratings.findFirst({
+    where: eq(ratings.id, input.ratingId),
+  });
+  if (target) {
+    await createNotification({
+      userId: target.userId,
+      kind: "reaction",
+      actorId: user.id,
+      ratingId: input.ratingId,
+      spotId: target.spotId,
+      meta: input.kind,
+    });
+  }
   return { ok: true, reacted: true };
 }
 

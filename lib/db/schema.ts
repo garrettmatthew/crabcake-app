@@ -18,6 +18,7 @@ export const users = pgTable("users", {
   displayName: text("display_name"),
   avatarSwatch: text("avatar_swatch").default("g1"),
   avatarUrl: text("avatar_url"),
+  badgesEarned: text("badges_earned").array(),
   homeCity: text("home_city").default("Baltimore, MD"),
   bio: text("bio"),
   role: text("role").notNull().default("user"),
@@ -142,6 +143,36 @@ export const tags = pgTable("tags", {
   position: integer("position").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    actorId: text("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    ratingId: text("rating_id").references(() => ratings.id, {
+      onDelete: "cascade",
+    }),
+    spotId: text("spot_id").references(() => spots.id, {
+      onDelete: "cascade",
+    }),
+    meta: text("meta"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userUnreadIdx: index("notifications_user_unread_idx").on(
+      t.userId,
+      t.readAt,
+      t.createdAt
+    ),
+  })
+);
 
 export const follows = pgTable(
   "follows",
