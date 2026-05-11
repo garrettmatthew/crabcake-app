@@ -3,6 +3,7 @@ import { listMyNotifications } from "@/lib/queries";
 import { ensureDemoUser, hasClerk } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import MarkAllReadOnMount from "@/components/MarkAllReadOnMount";
+import EmailDigestToggle from "@/components/EmailDigestToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,12 @@ export default async function NotificationsPage() {
       <MarkAllReadOnMount />
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
+        {user && (
+          <EmailDigestToggle
+            initial={Boolean(user.emailDigestEnabled)}
+            email={user.email ?? null}
+          />
+        )}
         {items.length === 0 ? (
           <div className="text-center py-16 text-[13px] text-[var(--ink-3)]">
             Nothing yet. Reactions, new followers, and badges will show up here.

@@ -456,6 +456,21 @@ async function checkBadgesAfterRating(userId: string) {
  * Mark all of the current user's unread notifications as read. Called
  * when they open /notifications.
  */
+/**
+ * One-click toggle for the daily email digest — surfaced from the
+ * /notifications page so users don't have to dig into /me/edit.
+ */
+export async function setEmailDigest(enabled: boolean) {
+  const user = await requireUser();
+  await db
+    .update(users)
+    .set({ emailDigestEnabled: enabled })
+    .where(eq(users.id, user.id));
+  revalidatePath("/notifications");
+  revalidatePath("/me/edit");
+  return { ok: true, enabled };
+}
+
 export async function markNotificationsRead() {
   const user = await requireUser();
   await db
